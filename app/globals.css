@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Warm paper and forest ink. No purple, no gradients. */
+:root {
+  --background: 40 33% 94%;
+  --foreground: 33 12% 10%;
+  --card: 40 60% 99%;
+  --card-foreground: 33 12% 10%;
+  --primary: 153 43% 18%;
+  --primary-foreground: 40 33% 96%;
+  --secondary: 36 28% 91%;
+  --secondary-foreground: 33 12% 10%;
+  --muted: 36 24% 90%;
+  --muted-foreground: 30 10% 24%;
+  --accent: 36 28% 91%;
+  --accent-foreground: 33 12% 10%;
+  --destructive: 0 74% 32%;
+  --destructive-foreground: 40 60% 98%;
+  --border: 34 28% 80%;
+  --input: 34 28% 80%;
+  --ring: 153 43% 18%;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper text-ink antialiased;
+  }
+
+  :focus-visible {
+    outline: 3px solid #1b4332;
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
