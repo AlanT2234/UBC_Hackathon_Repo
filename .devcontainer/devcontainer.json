@@ -1,0 +1,31 @@
+{
+  "name": "SafeNSound (Solana + Anchor)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": { "version": "stable", "profile": "minimal" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
+    // Enables `gh codespace ssh` from a local terminal.
+    "ghcr.io/devcontainers/features/sshd:1": { "version": "latest" }
+  },
+  // Rust program builds are much faster on 4 cores (uses 2x Codespaces quota vs 2-core).
+  "hostRequirements": { "cpus": 4 },
+  "containerEnv": {
+    "SOLANA_VERSION": "4.1.2",
+    "ANCHOR_VERSION": "1.2.2"
+  },
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/home/vscode/.local/share/solana/install/active_release/bin:/home/vscode/.local/bin"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [8787, 3000, 8899],
+  "portsAttributes": {
+    "8787": { "label": "backend" },
+    "3000": { "label": "dashboard" },
+    "8899": { "label": "solana-test-validator", "onAutoForward": "ignore" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer", "tamasfe.even-better-toml", "vitest.explorer"]
+    }
+  }
+}

@@ -5,3 +5,9 @@ out
 *.log
 .env
 .env.local
+
+# Anchor / Solana build output and keys
+target/
+.anchor/
+test-ledger/
+**/*-keypair.json
