@@ -2,7 +2,7 @@
   "caller": "+1 (555) 014-2290",
   "voices": {
     "Caller": { "name": "Chris", "voiceId": "iP95p4xoKVk53GoZ742B" },
-    "Dorothy": { "name": "Matilda", "voiceId": "XrExE9yKIg1WjnnlVkGX" }
+    "Dorothy": { "name": "SafeNSound Dorothy", "voiceId": "bEjJgPDkrytYmfxqCBBB" }
   },
   "lines": [
     { "speaker": "Caller", "text": "Hello, is this Dorothy? This is Mark from the fraud department at your bank." },

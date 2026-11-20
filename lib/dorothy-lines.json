@@ -1,0 +1,12 @@
+{
+  "voice": { "name": "SafeNSound Dorothy", "voiceId": "bEjJgPDkrytYmfxqCBBB" },
+  "lines": [
+    { "file": "01-city-electric.mp3", "scene": 2, "text": "Pay City Electric eighty-six dollars and forty cents for the electric bill." },
+    { "file": "02-yes-please.mp3", "scene": 2, "text": "Yes, please." },
+    { "file": "03-mikes-plumbing.mp3", "scene": 3, "text": "Pay Mike's Plumbing four hundred dollars. He fixed my sink." },
+    { "file": "04-yes.mp3", "scene": 3, "text": "Yes." },
+    { "file": "05-maria-gift-cards.mp3", "scene": 4, "text": "Pay Maria fifty dollars. She asked me to buy her some gift cards." },
+    { "file": "06-pay-the-bank.mp3", "scene": 5, "text": "Pay the bank five hundred dollars." },
+    { "file": "07-whats-my-balance.mp3", "scene": "smoke test", "text": "What's my balance?" }
+  ]
+}

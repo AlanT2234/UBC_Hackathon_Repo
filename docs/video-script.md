@@ -5,7 +5,9 @@ Drive and viewable by the judges. Target length: **≈2:55**. The narration is a
 rest of the time is demo audio and pauses.
 
 - **Narrator**: the voiceover.
-- **Dorothy**: spoken into the senior view's microphone.
+- **Dorothy**: an ElevenLabs voice ("SafeNSound Dorothy", made with Voice Design). Play the named
+  MP3 from `media/dorothy/` (dashboard repo) near the laptop's microphone so the voice agent hears
+  it. Regenerate them with `npm run dorothy-lines`.
 - *(Agent: …)*: what SafeNSound says back. Its wording varies a little between takes.
 
 Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlabs-setup.md).
@@ -25,12 +27,12 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 
 *(Agent: "Hello Dorothy, it's SafeNSound. Who would you like to pay today?")*
 
-**Dorothy:**
+**Dorothy** ▶ `01-city-electric.mp3`:
 > Pay City Electric eighty-six dollars and forty cents for the electric bill.
 
 *(The agent repeats the payee and amount.)*
 
-**Dorothy:**
+**Dorothy** ▶ `02-yes-please.mp3`:
 > Yes, please.
 
 *(The card shows **Paid** and the balance drops.)*
@@ -40,10 +42,10 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 
 ## Scene 3: Held, then approved (0:38–1:08)
 
-**Dorothy:**
+**Dorothy** ▶ `03-mikes-plumbing.mp3`:
 > Pay Mike's Plumbing four hundred dollars. He fixed my sink.
 
-*(The agent repeats it; Dorothy says "Yes." Agent: "I don't know Mike's Plumbing yet, so I've put 400 dollars on hold and asked Sam…")*
+*(The agent repeats it; play `04-yes.mp3`. Agent: "I don't know Mike's Plumbing yet, so I've put 400 dollars on hold and asked Sam…")*
 
 **Narrator** (as the card shows **Waiting for family**):
 > Mike is new, and four hundred dollars is over her limit. So the money moves into escrow, and her grandson Sam is asked to approve.
@@ -57,10 +59,10 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 
 **On screen:** back to Dorothy's view. She taps **Talk to SafeNSound**.
 
-**Dorothy:**
+**Dorothy** ▶ `05-maria-gift-cards.mp3`:
 > Pay Maria fifty dollars. She asked me to buy her some gift cards.
 
-*(The agent repeats it; Dorothy says "Yes." Agent: "Something about this sounds like a scam warning sign, so I've put 50 dollars on hold and asked Sam…")*
+*(The agent repeats it; play `04-yes.mp3`. Agent: "Something about this sounds like a scam warning sign, so I've put 50 dollars on hold and asked Sam…")*
 
 **Narrator** (as the card shows **Waiting for family**):
 > Maria is her cleaner, already on her list. But scammers pose as people we know, and gift cards are their favorite trick. So even a trusted name waits for family when the request sounds like a scam.
@@ -81,7 +83,7 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 
 **On screen:** cut to Dorothy's view. She taps **Talk to SafeNSound**.
 
-**Dorothy:**
+**Dorothy** ▶ `06-pay-the-bank.mp3`:
 > Pay the bank five hundred dollars.
 
 *(Agent: "Payments are paused right now while your guardians check on something. Your money is safe.")*
@@ -102,14 +104,22 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 
 ## Scene 8: Close (2:45–2:55)
 
-**On screen:** SafeNSound logo.
+**On screen:** SafeNSound logo, with a small credit line: *Dorothy's voice and the scam call: ElevenLabs Voice Design and text-to-speech.*
 
 **Narrator:**
-> SafeNSound: voice payments that keep seniors safe and sound. Built with ElevenLabs Agents and text-to-speech, and Solana.
+> SafeNSound: voice payments that keep seniors safe and sound. Built with ElevenLabs Agents, Voice Design and text-to-speech, and Solana.
 
 ---
 
 ## Notes before recording
+
+- **Playing Dorothy's lines.** Start each MP3 only after SafeNSound has finished speaking; the agent
+  waits for her to finish and then answers. Keep the speaker close to the mic and the room quiet.
+  If the agent's reply gets cut off by your playback, wait a beat longer. All seven clips were
+  checked with ElevenLabs speech-to-text and transcribe word for word. `07-whats-my-balance.mp3` is
+  for the pre-recording smoke test.
+- **Same Dorothy everywhere.** The scam call's Dorothy lines use the same "SafeNSound Dorothy" voice
+  (`npm run demo-audio`), so she sounds like one person across the video.
 
 - **Don't imply live phone listening.** The Twilio call bridge isn't built, which is why Scene 5
   says "built to listen" and "recorded scam call", and why the caption stays on screen. Keep it
@@ -125,8 +135,8 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
   held for 15 minutes, so restart the backend before each full take.
 - **Scene 5's payment line is deliberately plain** ("Pay the bank five hundred dollars"), because
   payments are already paused. Any request shows the freeze.
-- **ElevenLabs credit:** the closing line names both products used, Agents for the assistant and
-  text-to-speech for the scam call's voices. That helps with the bounty's "shows the integration"
+- **ElevenLabs credit:** the closing line and on-screen credit name the products used: Agents for
+  the assistant, and Voice Design plus text-to-speech for Dorothy and the scam call's voices. That helps with the bounty's "shows the integration"
   criterion.
 - **Running long?** Cut Scene 7 (guardian tools) first, then the last sentence of Scene 3's
   narration. Keep Scene 4: it's the answer to "what if the scammer coaches her to pay someone she
