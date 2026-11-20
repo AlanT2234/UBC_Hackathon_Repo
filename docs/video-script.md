@@ -1,7 +1,7 @@
 # SafeNSound demo video script
 
 Submission requirement: a **2–3 minute** video, **with ElevenLabs audio**, on YouTube or Google
-Drive and viewable by the judges. Target length: **≈2:50**. The narration is about 330 words; the
+Drive and viewable by the judges. Target length: **≈2:55**. The narration is about 275 words (≈1:50 spoken); the
 rest of the time is demo audio and pauses.
 
 - **Narrator**: the voiceover.
@@ -19,7 +19,7 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 **Narrator:**
 > Older Americans lose billions of dollars a year to scams, often in a single phone call. This is SafeNSound. Dorothy pays her bills just by talking, and the rules that protect her money can't be talked out of.
 
-## Scene 2: Paid (0:15–0:40)
+## Scene 2: Paid (0:15–0:38)
 
 **On screen:** Dorothy taps **Talk to SafeNSound**.
 
@@ -38,7 +38,7 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 **Narrator** (over the Paid card):
 > City Electric is a payee her family already approved, and the amount is within her limits, so it goes through right away.
 
-## Scene 3: Held, then approved (0:40–1:15)
+## Scene 3: Held, then approved (0:38–1:08)
 
 **Dorothy:**
 > Pay Mike's Plumbing four hundred dollars. He fixed my sink.
@@ -51,9 +51,21 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 **On screen:** cut to the Guardian view. The held payment, then Sam clicks **Approve as Sam**, then **Paid**.
 
 **Narrator:**
-> Sam checks with her and approves. If nobody had answered, the money would simply go back to her balance.
+> Sam checks with her and approves. Otherwise, the money would simply go back to her.
 
-## Scene 4: The scam call (1:15–1:55)
+## Scene 4: A trusted name, a scam request (1:08–1:28)
+
+**On screen:** back to Dorothy's view. She taps **Talk to SafeNSound**.
+
+**Dorothy:**
+> Pay Maria fifty dollars. She asked me to buy her some gift cards.
+
+*(The agent repeats it; Dorothy says "Yes." Agent: "Something about this sounds like a scam warning sign, so I've put 50 dollars on hold and asked Sam…")*
+
+**Narrator** (as the card shows **Waiting for family**):
+> Maria is her cleaner, already on her list. But scammers pose as people we know, and gift cards are their favorite trick. So even a trusted name waits for family when the request sounds like a scam.
+
+## Scene 5: The scam call (1:28–2:05)
 
 **On screen:** Guardian view. Click **Play demo scam call** with sound on.
 
@@ -74,21 +86,21 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 
 *(Agent: "Payments are paused right now while your guardians check on something. Your money is safe.")*
 
-## Scene 5: Onchain proof (1:55–2:25)
+## Scene 6: Onchain proof (2:05–2:32)
 
 **On screen:** terminal running `npm run devnet -- run --step` (from `backend/`), then Solana Explorer showing the rejected transactions.
 
 **Narrator:**
 > The voice assistant never decides. The rules live in a Solana program. Here, the assistant's own key tries to send nine hundred dollars, and the program rejects it. A payment to someone not on her list: rejected. And once the vault is frozen, even twenty dollars is refused. No voice, script or jailbroken AI can override the program.
 
-## Scene 6: Guardian tools (2:25–2:45)
+## Scene 7: Guardian tools (2:32–2:45)
 
 **On screen:** a quick pan through Payment history (filters, Download CSV), Payees (the 24-hour badge) and Rules.
 
 **Narrator:**
-> Her family sees every payment and why it was paid, held or stopped. New payees wait twenty-four hours, so a scammer can't rush her. And anyone in the family can pause everything with one tap.
+> Her family sees every payment and why, approves new payees after a twenty-four-hour wait, and can pause everything with one tap.
 
-## Scene 7: Close (2:45–2:55)
+## Scene 8: Close (2:45–2:55)
 
 **On screen:** SafeNSound logo.
 
@@ -99,22 +111,30 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
 
 ## Notes before recording
 
-- **Don't imply live phone listening.** The Twilio call bridge isn't built, which is why Scene 4
+- **Don't imply live phone listening.** The Twilio call bridge isn't built, which is why Scene 5
   says "built to listen" and "recorded scam call", and why the caption stays on screen. Keep it
   that way, so a judge can't fairly say the video overclaims.
-- **Scene 4's payment line is deliberately plain** ("Pay the bank five hundred dollars"), because
-  payments are already paused. Any request shows the freeze, and you don't need scam words to
-  trigger it.
+- **Scene 4 can end two ways.** The keyword rules alone hold this request, but the voice agent also
+  gives its own scam judgement. If it rates the request a clear scam, SafeNSound **refuses** it and
+  **pauses payments** instead ("This sounds like a common scam, so I'm not sending it…"). Both are
+  correct. If you get the refusal, either keep it and change the last narration sentence to "So
+  even a trusted name is refused when the request sounds like a scam", or retake. Either way, press
+  **Turn payments back on** in the Guardian view before Scene 5, so the freeze in the scam call is
+  the moment payments pause.
+- **Order matters within a take:** Scenes 2–4 before the scam call. After Scene 5, payments stay
+  held for 15 minutes, so restart the backend before each full take.
+- **Scene 5's payment line is deliberately plain** ("Pay the bank five hundred dollars"), because
+  payments are already paused. Any request shows the freeze.
 - **ElevenLabs credit:** the closing line names both products used, Agents for the assistant and
-  text-to-speech for the scam call's voices. That helps with the bounty's "shows the
-  integration" criterion.
-- **Running long?** Cut the second half of Scene 3's narration ("If nobody had answered…") and
-  shorten Scene 6 to one sentence. That saves about 15 seconds.
-- **Restart the backend before each full take.** After Scene 4, payments stay held for 15 minutes.
+  text-to-speech for the scam call's voices. That helps with the bounty's "shows the integration"
+  criterion.
+- **Running long?** Cut Scene 7 (guardian tools) first, then the last sentence of Scene 3's
+  narration. Keep Scene 4: it's the answer to "what if the scammer coaches her to pay someone she
+  trusts?"
 - **The backend tunnel must be running** while recording the voice scenes, because ElevenLabs calls
   the backend's public address for every tool call. Re-run `npm run elevenlabs:setup -- <backend
   URL>` if the tunnel restarted.
 - **Capture system audio** so the agent's voice and the scam call are in the video (OBS, or Xbox
   Game Bar with Win + Alt + R). Edit in Clipchamp or similar.
 - **Two windows:** a narrow, phone-sized one for Dorothy (`/`) and a wide one for Sam (`/family`).
-- **Record Scene 5 separately** with `--step`, and zoom into Explorer's error line.
+- **Record Scene 6 separately** with `--step`, and zoom into Explorer's error line.
