@@ -3,6 +3,7 @@
 import { ApprovalRow } from "@/components/family/approval-row";
 import { ActivityTable } from "@/components/family/activity-table";
 import { FreezeControl } from "@/components/family/freeze-control";
+import { ScamCallDemo } from "@/components/family/scam-call-demo";
 import { Money } from "@/components/money";
 import { useGuardian } from "@/lib/use-guardian";
 
@@ -54,6 +55,8 @@ export default function FamilyHomePage() {
       {connection === "live" ? (
         <FreezeControl frozen={frozen} seniorName={account.seniorName} />
       ) : null}
+
+      {connection === "live" ? <ScamCallDemo /> : null}
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Waiting for you</h2>

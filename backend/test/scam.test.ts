@@ -1,6 +1,11 @@
+import Anthropic from '@anthropic-ai/sdk';
+import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
+import { loadConfig } from '../src/config.js';
+import { parseDollars } from '../src/money.js';
+import { ClaudeScamScorer } from '../src/scam/llm.js';
 import { scoreText } from '../src/scam/rules.js';
-import { setup } from './helpers.js';
+import { fakeScamScorer, setup } from './helpers.js';
 
 describe('scoreText', () => {
   it('scores ordinary conversation as zero', () => {
@@ -30,5 +35,102 @@ describe('CallMonitor', () => {
     expect(after.frozeVault).toBe(true);
     expect((await s.client.getVault(s.demo.vault)).frozen).toBe(true);
     expect(s.notifier.sent.some((m) => m.startsWith('🚨 Possible scam call to Dorothy from +1 555 0199'))).toBe(true);
+  });
+});
+
+describe('credential and account-transfer rules', () => {
+  it.each([
+    ['the bank wants your passwords', 'credential_theft'],
+    ['please say the last few digits of your credit card number', 'credential_theft'],
+    ['transfer 2000 dollars to this account', 'wire_transfer'],
+    ['we need to move your savings into a safe account', 'wire_transfer'],
+    ['read me the one-time code we just texted you', 'credential_theft'],
+  ])('flags "%s"', (text, scamType) => {
+    const s = scoreText(text);
+    expect(s.risk).toBeGreaterThanOrEqual(0.4);
+    expect(s.scamType).toBe(scamType);
+  });
+
+  it.each(['Please pay City Electric $86.40 for the electric bill.', 'pin the photo to the fridge', 'Tyler opened a savings account'])(
+    'leaves "%s" alone',
+    (text) => {
+      expect(scoreText(text).risk).toBe(0);
+    },
+  );
+});
+
+describe('LLM scam layer', () => {
+  const HIGH = { risk: 0.85, scamType: 'credential_theft' as const, reasons: ['asks her to read the numbers on her card'] };
+
+  it('freezes a call the keyword rules miss, after the background pass', async () => {
+    const { scorer, seen } = fakeScamScorer(/numbers on the back/i, HIGH);
+    const s = setup({}, { scamScorer: scorer });
+    const call = s.calls.start(s.demo.vault, '+1 555 0142');
+    const text = 'Hi Dorothy, I just need you to read me the numbers on the back';
+    expect(scoreText(text).risk).toBe(0);
+    await s.calls.ingest(call.id, text);
+    await s.calls.settled();
+    expect(s.calls.get(call.id)).toMatchObject({ frozeVault: true, score: { risk: 0.85, reasons: HIGH.reasons } });
+    expect((await s.client.getVault(s.demo.vault)).frozen).toBe(true);
+    expect(seen[0]).toMatchObject({ source: 'call' });
+  });
+
+  it('folds chunks that arrive mid-pass into one follow-up pass', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const seen: string[] = [];
+    const s = setup({}, {
+      scamScorer: {
+        score: async (text) => {
+          seen.push(text);
+          await gate;
+          return { risk: 0, scamType: null, reasons: [] };
+        },
+      },
+    });
+    const call = s.calls.start(s.demo.vault, null);
+    await s.calls.ingest(call.id, 'one');
+    await s.calls.ingest(call.id, 'two');
+    await s.calls.ingest(call.id, 'three');
+    release();
+    await s.calls.settled();
+    expect(seen).toEqual(['one', 'one two three']);
+  });
+
+  it('refuses a payment when the LLM flags what the senior said, and keeps both layers’ reasons', async () => {
+    const { scorer, seen } = fakeScamScorer(/card numbers/i, HIGH);
+    const s = setup({}, { scamScorer: scorer });
+    const d = await s.engine.requestPayment({
+      vault: s.demo.vault,
+      payeeName: 'Kevin',
+      amount: parseDollars(50),
+      context: 'Kevin said to do it right now, he needs my card numbers to fix my computer',
+    });
+    expect(d).toMatchObject({ outcome: 'refused', code: 'scam_suspected' });
+    if (d.outcome !== 'refused') throw new Error('expected refusal');
+    expect(d.reasons).toEqual(expect.arrayContaining(['asks her to read the numbers on her card']));
+    expect(d.reasons.some((r) => r.startsWith('pressure to act now'))).toBe(true);
+    expect(seen).toEqual([{ text: expect.stringContaining('card numbers'), source: 'payment_request' }]);
+  });
+
+  it('skips the LLM when there is nothing said to score', async () => {
+    const { scorer, seen } = fakeScamScorer(/./, HIGH);
+    const s = setup({}, { scamScorer: scorer });
+    expect(await s.engine.requestPayment({ vault: s.demo.vault, payeeName: 'Maria', amount: parseDollars(20) })).toMatchObject({
+      outcome: 'paid',
+    });
+    expect(seen).toEqual([]);
+  });
+
+  it('falls back to keyword rules when Claude is unreachable', async () => {
+    const client = new Anthropic({ apiKey: 'test', baseURL: 'http://127.0.0.1:9', maxRetries: 0 });
+    const scorer = new ClaudeScamScorer(pino({ level: 'silent' }), { model: 'claude-opus-5-5', paymentTimeoutMs: 2000, callTimeoutMs: 2000 }, client);
+    expect(await scorer.score('hello', 'payment_request')).toEqual({ risk: 0, scamType: null, reasons: [] });
+  });
+
+  it('is off without an API key', () => {
+    expect(loadConfig({}).scamLlm).toBeNull();
+    expect(loadConfig({ ANTHROPIC_API_KEY: 'k', SCAM_LLM: 'false' }).scamLlm).toBeNull();
+    expect(loadConfig({ ANTHROPIC_API_KEY: 'k' }).scamLlm).toMatchObject({ model: 'claude-opus-5-5' });
   });
 });

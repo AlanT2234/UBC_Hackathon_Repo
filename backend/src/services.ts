@@ -8,13 +8,17 @@ import type { Logger } from './logger.js';
 import { PayeeDirectory } from './payees/directory.js';
 import { PaymentLog } from './payments/log.js';
 import { PolicyEngine } from './policy/engine.js';
+import { ClaudeScamScorer, type ScamScorer } from './scam/llm.js';
 import { CallMonitor } from './scam/monitor.js';
 import { seedDemo } from './seed.js';
 import { MockVaultClient } from './vault/mock.js';
 
 export type Services = ReturnType<typeof createServices>;
 
-export function createServices(config: Config, deps: { log: Logger; now?: Clock; notifier?: Notifier }) {
+export function createServices(
+  config: Config,
+  deps: { log: Logger; now?: Clock; notifier?: Notifier; scamScorer?: ScamScorer },
+) {
   const { log } = deps;
   const now = deps.now ?? systemClock;
   const bus = new EventBus(log);
@@ -37,8 +41,9 @@ export function createServices(config: Config, deps: { log: Logger; now?: Clock;
   const payments = new PaymentLog(directory, now);
   payments.attach(bus);
 
-  const calls = new CallMonitor(client, alerts, now, log);
-  const engine = new PolicyEngine({ client, directory, calls, alerts, now, payments });
+  const scamScorer = deps.scamScorer ?? (config.scamLlm ? new ClaudeScamScorer(log, config.scamLlm) : undefined);
+  const calls = new CallMonitor(client, alerts, now, log, undefined, scamScorer);
+  const engine = new PolicyEngine({ client, directory, calls, alerts, now, payments, scamScorer });
   const demo = seedDemo(client, directory, { holdSeconds: config.demoHoldSeconds });
 
   return { config, log, now, bus, directory, client, alerts, scheduler, calls, payments, engine, demo, defaultVault: demo.vault };

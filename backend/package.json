@@ -10,12 +10,15 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+    "tunnel": "cloudflared tunnel --no-autoupdate --url http://localhost:8787",
+    "elevenlabs:setup": "tsx scripts/elevenlabs-setup.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.11.0",
     "@fastify/cors": "^11.4.3",
     "@solana/web3.js": "^1.99.0",
     "fastify": "^5.12.8",

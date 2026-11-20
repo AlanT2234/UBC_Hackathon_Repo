@@ -5,7 +5,8 @@ import { spokenUsd } from '../money.js';
 import type { PayeeDirectory } from '../payees/directory.js';
 import type { PaymentLog } from '../payments/log.js';
 import type { CallMonitor } from '../scam/monitor.js';
-import { NO_SCAM, maxScore, scoreText } from '../scam/rules.js';
+import type { ScamScorer } from '../scam/llm.js';
+import { NO_SCAM, maxScore, mergeScores, scoreText, type ScamScore } from '../scam/rules.js';
 import type { VaultClient } from '../vault/client.js';
 import { isVaultError } from '../vault/errors.js';
 import { scoreRisk, type RiskBreakdown } from './risk.js';
@@ -26,6 +27,8 @@ export interface PaymentRequest {
   amount: Units;
   /** What the senior said about the payment (agent conversation); scored for scam cues. */
   context?: string;
+  /** The voice agent's own scam judgement of the conversation. Can only raise the risk. */
+  agentConcern?: ScamScore;
 }
 
 export interface ResolvedPayee {
@@ -68,6 +71,8 @@ export interface PolicyDeps {
   now: Clock;
   /** Records every decision for the dashboard's payment history. */
   payments?: PaymentLog;
+  /** LLM layer over what the senior said; keyword rules alone when absent. */
+  scamScorer?: ScamScorer;
 }
 
 /**
@@ -96,6 +101,8 @@ export class PolicyEngine {
       return this.refused('invalid_amount', null, amount, [], null, "I didn't catch the amount. How much would you like to send?");
     }
     const recentRequests = this.recordRequest(req.vault);
+    // Started now so the LLM pass overlaps the vault and payee lookups. It never rejects.
+    const said = this.scoreSaid(req.context);
     const vault = await client.getVault(req.vault);
     if (vault.frozen) {
       return this.refused(
@@ -119,7 +126,7 @@ export class PolicyEngine {
     }
     const payee = resolution;
 
-    const scam = maxScore(this.deps.calls.riskFor(vault.address), req.context ? scoreText(req.context) : NO_SCAM);
+    const scam = maxScore(this.deps.calls.riskFor(vault.address), mergeScores(await said, req.agentConcern ?? NO_SCAM));
     const risk = scoreRisk({
       newPayee: !payee.active,
       amount,
@@ -188,6 +195,14 @@ export class PolicyEngine {
       }
       throw err;
     }
+  }
+
+  private async scoreSaid(context: string | undefined): Promise<ScamScore> {
+    const text = context?.trim();
+    if (!text) return NO_SCAM;
+    const keywords = scoreText(text);
+    const llm = this.deps.scamScorer;
+    return llm ? mergeScores(keywords, await llm.score(text, 'payment_request')) : keywords;
   }
 
   private async resolvePayee(vault: VaultState, spoken: string): Promise<ResolvedPayee | { options: string[] }> {

@@ -22,6 +22,9 @@ for (const [name, value] of [
   if (!value) log.warn(`${name} is not set; that surface is unauthenticated (fine for local dev only)`);
 }
 
+if (config.scamLlm) log.info({ model: config.scamLlm.model }, 'scam scorer: keyword rules + Claude');
+else log.warn('scam scorer: keyword rules only (set ANTHROPIC_API_KEY to add the Claude layer)');
+
 services.scheduler.start(config.schedulerIntervalMs);
 await app.listen({ port: config.port, host: config.host });
 log.info({ vault: services.defaultVault }, 'SafeSpend backend ready (mock vault client)');

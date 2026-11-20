@@ -52,6 +52,46 @@ describe('ElevenLabs tools', () => {
     expect(s.notifier.sent.at(-1)).toContain('approved by Sam and sent');
   });
 
+  it("refuses when the agent's own scam concern is high, even with no keyword cues", async () => {
+    const s = setup({ TOOL_SECRET: 'shh' });
+    const res = await s.app().inject({
+      method: 'POST',
+      url: '/tools/request_payment',
+      headers,
+      payload: {
+        payee_name: 'Kevin',
+        amount: 80,
+        memo: 'Kevin from the computer company said he fixed my laptop remotely',
+        scam_concern: 'high',
+        concern_reason: 'stranger claims he fixed her laptop and wants payment',
+      },
+    });
+    expect(res.json()).toMatchObject({ outcome: 'refused', code: 'scam_suspected' });
+    expect(res.json().reasons).toContain('the assistant was concerned: stranger claims he fixed her laptop and wants payment');
+    expect((await s.client.getVault(s.demo.vault)).frozen).toBe(true);
+  });
+
+  it('cannot lower the risk with scam_concern none, and ignores garbage values', async () => {
+    const s = setup({ TOOL_SECRET: 'shh' });
+    const app = s.app();
+    const scam = await app.inject({
+      method: 'POST',
+      url: '/tools/request_payment',
+      headers,
+      payload: { payee_name: 'Daniel', amount: 500, memo: 'buy gift cards and do not tell anyone', scam_concern: 'none' },
+    });
+    expect(scam.json()).toMatchObject({ outcome: 'refused', code: 'scam_suspected' });
+
+    const fresh = setup({ TOOL_SECRET: 'shh' });
+    const ok = await fresh.app().inject({
+      method: 'POST',
+      url: '/tools/request_payment',
+      headers,
+      payload: { payee_name: 'Maria', amount: 40, memo: 'for cleaning', scam_concern: 'definitely-not', concern_reason: 7 },
+    });
+    expect(ok.json()).toMatchObject({ outcome: 'paid' });
+  });
+
   it('gives the agent something speakable on bad input', async () => {
     const app = setup().app();
     const res = await app.inject({ method: 'POST', url: '/tools/request_payment', payload: { payee_name: 'Maria', amount: 'lots' } });

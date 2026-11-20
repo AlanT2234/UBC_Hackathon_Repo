@@ -425,3 +425,28 @@ export const SAMPLE_REQUESTS: VoiceRequest[] = [
     said: "Send Daniel $500 in gift cards. He said the bank needs it today and not to tell anyone.",
   },
 ];
+
+// ---------------------------------------------------------------------------------------------
+// Call listening. In production, the Twilio → Scribe bridge posts transcript chunks; the demo
+// replays a scripted call through the same endpoints, so the real scorer decides every line.
+
+export type CallSession = {
+  id: string;
+  caller: string | null;
+  transcript: { at: number; text: string }[];
+  score: { risk: number; scamType: string | null; reasons: string[] };
+  frozeVault: boolean;
+  endedAt: number | null;
+};
+
+export function startCall(caller: string): Promise<CallSession> {
+  return request<CallSession>("/api/calls", { method: "POST", body: { caller } });
+}
+
+export function sendTranscript(id: string, text: string): Promise<CallSession> {
+  return request<CallSession>(`/api/calls/${id}/transcript`, { method: "POST", body: { text } });
+}
+
+export function endCall(id: string): Promise<CallSession> {
+  return request<CallSession>(`/api/calls/${id}/end`, { method: "POST", body: {} });
+}

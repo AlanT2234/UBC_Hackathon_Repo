@@ -27,6 +27,11 @@ const Env = z.object({
   DEMO_ROUTES: flag(true),
   DEMO_HOLD_SECONDS: z.coerce.number().int().positive().default(1800),
   SCHEDULER_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  ANTHROPIC_API_KEY: optionalString,
+  SCAM_LLM: flag(true),
+  SCAM_LLM_MODEL: z.string().default('claude-opus-5-5'),
+  SCAM_LLM_PAYMENT_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+  SCAM_LLM_CALL_TIMEOUT_MS: z.coerce.number().int().positive().default(20000),
 });
 
 export type Config = ReturnType<typeof loadConfig>;
@@ -48,5 +53,14 @@ export function loadConfig(env: Record<string, string | undefined>) {
     demoRoutes: e.DEMO_ROUTES,
     demoHoldSeconds: e.DEMO_HOLD_SECONDS,
     schedulerIntervalMs: e.SCHEDULER_INTERVAL_MS,
+    // The SDK reads ANTHROPIC_API_KEY from the environment itself; this only decides whether layer 2 runs.
+    scamLlm:
+      e.SCAM_LLM && e.ANTHROPIC_API_KEY
+        ? {
+            model: e.SCAM_LLM_MODEL,
+            paymentTimeoutMs: e.SCAM_LLM_PAYMENT_TIMEOUT_MS,
+            callTimeoutMs: e.SCAM_LLM_CALL_TIMEOUT_MS,
+          }
+        : null,
   };
 }

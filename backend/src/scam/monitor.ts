@@ -5,7 +5,8 @@ import type { Logger } from '../logger.js';
 import type { AlertService } from '../alerts/service.js';
 import type { VaultClient } from '../vault/client.js';
 import { isVaultError } from '../vault/errors.js';
-import { NO_SCAM, maxScore, scoreText, type ScamScore } from './rules.js';
+import type { ScamScorer } from './llm.js';
+import { NO_SCAM, maxScore, mergeScores, scoreText, type ScamScore } from './rules.js';
 
 export interface CallSession {
   id: string;
@@ -32,10 +33,14 @@ export const DEFAULT_CALL_OPTIONS: CallMonitorOptions = { freezeThreshold: 0.6, 
 
 /**
  * Listens to unknown-number calls (Twilio → Scribe transcript chunks) and freezes the vault the
- * moment the transcript looks like a scam. Emits `update` with the session for the live dashboard.
+ * moment the transcript looks like a scam: keyword rules on every chunk, then an LLM pass in the
+ * background. Emits `update` with the session for the live dashboard.
  */
 export class CallMonitor extends EventEmitter<{ update: [CallSession] }> {
   private readonly sessions = new Map<string, CallSession>();
+  /** One LLM pass in flight per call; chunks that arrive meanwhile are folded into the next pass. */
+  private readonly llmRuns = new Map<string, Promise<void>>();
+  private readonly llmStale = new Set<string>();
 
   constructor(
     private readonly client: VaultClient,
@@ -43,6 +48,7 @@ export class CallMonitor extends EventEmitter<{ update: [CallSession] }> {
     private readonly now: Clock,
     private readonly log: Logger,
     private readonly opts: CallMonitorOptions = DEFAULT_CALL_OPTIONS,
+    private readonly llm?: ScamScorer,
   ) {
     super();
   }
@@ -79,9 +85,47 @@ export class CallMonitor extends EventEmitter<{ update: [CallSession] }> {
     const now = this.now();
     session.transcript.push({ at: now, text });
     session.lastActivity = now;
-    const window = session.transcript.map((t) => t.text).join(' ').slice(-this.opts.windowChars);
-    session.score = maxScore(session.score, scoreText(window));
+    session.score = maxScore(session.score, scoreText(this.window(session)));
+    await this.freezeIfScam(session);
+    this.emit('update', session);
+    this.scheduleLlm(session);
+    return session;
+  }
 
+  /** Resolves once every LLM pass in flight has finished (tests, graceful shutdown). */
+  async settled(): Promise<void> {
+    while (this.llmRuns.size > 0) await Promise.all(this.llmRuns.values());
+  }
+
+  private window(session: CallSession): string {
+    return session.transcript.map((t) => t.text).join(' ').slice(-this.opts.windowChars);
+  }
+
+  /** Layer 2: the keyword pass already ran (and may have frozen); the LLM can only raise the score. */
+  private scheduleLlm(session: CallSession): void {
+    const llm = this.llm;
+    if (!llm) return;
+    if (this.llmRuns.has(session.id)) {
+      this.llmStale.add(session.id);
+      return;
+    }
+    const run = (async () => {
+      do {
+        this.llmStale.delete(session.id);
+        const score = await llm.score(this.window(session), 'call');
+        if (score.risk <= session.score.risk) continue;
+        session.score = mergeScores(session.score, score);
+        await this.freezeIfScam(session);
+        this.emit('update', session);
+      } while (this.llmStale.has(session.id));
+    })()
+      .catch((err) => this.log.error({ err, call: session.id }, 'scam LLM pass failed'))
+      .finally(() => this.llmRuns.delete(session.id));
+    this.llmRuns.set(session.id, run);
+  }
+
+  private async freezeIfScam(session: CallSession): Promise<void> {
+    const id = session.id;
     if (!session.frozeVault && session.score.risk >= this.opts.freezeThreshold) {
       session.frozeVault = true;
       try {
@@ -94,8 +138,6 @@ export class CallMonitor extends EventEmitter<{ update: [CallSession] }> {
       }
       if (session.frozeVault) await this.alerts.scamCallDetected(session);
     }
-    this.emit('update', session);
-    return session;
   }
 
   end(id: string): CallSession | undefined {

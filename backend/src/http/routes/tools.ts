@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { weeklyRemaining } from '../../domain/rules.js';
 import { parseDollars, spokenUsd } from '../../money.js';
+import type { ScamScore } from '../../scam/rules.js';
 import type { Services } from '../../services.js';
 import { isVaultError } from '../../vault/errors.js';
 import { requireToken } from '../auth.js';
@@ -11,7 +12,23 @@ const PaymentBody = z.object({
   payee_name: z.string().trim().min(1).max(120),
   amount: z.union([z.number(), z.string()]),
   memo: z.string().max(1000).optional(),
+  // The voice agent's own read of the conversation. Untrusted like everything else it sends,
+  // so it can only raise the risk: an agent talked into saying "none" changes nothing.
+  scam_concern: z.enum(['none', 'low', 'medium', 'high']).optional().catch(undefined),
+  concern_reason: z.string().max(300).optional().catch(undefined),
 });
+
+const CONCERN_RISK = { none: 0, low: 0.2, medium: 0.45, high: 0.85 } as const;
+
+function agentConcern(level: keyof typeof CONCERN_RISK | undefined, reason: string | undefined): ScamScore | undefined {
+  if (!level || level === 'none') return undefined;
+  const why = reason?.trim();
+  return {
+    risk: CONCERN_RISK[level],
+    scamType: 'unknown',
+    reasons: [`the assistant was concerned${why ? `: ${why}` : ''}`],
+  };
+}
 
 /**
  * ElevenLabs Agents server tools. Every response carries a `message` for the agent to read aloud.
@@ -70,6 +87,7 @@ export async function toolRoutes(app: FastifyInstance, s: Services): Promise<voi
       payeeName: body.payee_name,
       amount: parseDollars(body.amount),
       context: body.memo,
+      agentConcern: agentConcern(body.scam_concern, body.concern_reason),
     });
     return decisionView(decision, s.config.cluster);
   });

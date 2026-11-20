@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { Button } from "@/components/ui/button";
+import { useGuardian } from "@/lib/use-guardian";
 import type { AgentPhase } from "@/lib/types";
 
 export function VoiceLive({
@@ -13,6 +14,8 @@ export function VoiceLive({
   onPhase: (phase: AgentPhase, detail: string) => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  // Keeps a Paid / Held / Blocked card up while the agent explains it, until she speaks again.
+  const outcome = useRef<AgentPhase>("listening");
   const conversation = useConversation({
     onConnect: () => {
       onPhase("listening", "Speak in a normal voice. Guardian is listening.");
@@ -26,14 +29,29 @@ export function VoiceLive({
     },
     onMessage: (message) => {
       if (message.source === "ai") {
-        onPhase("listening", message.message);
+        onPhase(outcome.current, message.message);
       } else {
+        outcome.current = "listening";
         onPhase("checking", `You said: “${message.message}”`);
       }
     },
   });
 
   const connected = conversation.status === "connected";
+
+  // The agent's tool calls go straight to the backend; show each decision as it lands.
+  const latest = useGuardian().payments[0] ?? null;
+  const seen = useRef<string | null>(null);
+  useEffect(() => {
+    if (!connected) {
+      seen.current = latest?.id ?? null;
+      return;
+    }
+    if (!latest || latest.id === seen.current) return;
+    seen.current = latest.id;
+    outcome.current = latest.status;
+    onPhase(latest.status, latest.reason);
+  }, [connected, latest, onPhase]);
 
   async function start() {
     setError(null);
