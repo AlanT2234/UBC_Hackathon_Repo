@@ -100,6 +100,14 @@ describe('ElevenLabs tools', () => {
   });
 });
 
+describe('root', () => {
+  it('answers at / with a pointer to the dashboard, without auth', async () => {
+    const res = await setup({ DASHBOARD_TOKEN: 'tok', DASHBOARD_URL: 'https://dash.example' }).app().inject({ url: '/' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ service: 'SafeNSound backend', ok: true, dashboard: 'https://dash.example', health: '/health' });
+  });
+});
+
 describe('dashboard API', () => {
   it('requires the dashboard token when set', async () => {
     const s = setup({ DASHBOARD_TOKEN: 'tok' });

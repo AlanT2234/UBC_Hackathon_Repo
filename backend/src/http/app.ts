@@ -29,6 +29,14 @@ export function buildApp(s: Services) {
     return reply.code(status).send({ error: status >= 500 ? 'internal_error' : 'bad_request' });
   });
 
+  // API only; the root just says so (and where the dashboard lives) instead of a bare 404.
+  app.get('/', async () => ({
+    service: 'SafeNSound backend',
+    ok: true,
+    dashboard: s.config.dashboardUrl,
+    health: '/health',
+  }));
+
   app.get('/health', async () => ({ ok: true, vault: s.defaultVault, scheduler: s.scheduler.pending() }));
 
   app.register((r) => toolRoutes(r, s), { prefix: '/tools' });
