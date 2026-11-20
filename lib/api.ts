@@ -197,6 +197,7 @@ function toRules(v: VaultView): Rule[] {
       summary: `${v.perPaymentLimit.display} at a time`,
       detail: "A larger payment, even to someone she already pays, waits for a family member.",
       locked: true,
+      enforcedBy: "contract",
       limitCents: cents(v.perPaymentLimit),
     },
     {
@@ -205,6 +206,7 @@ function toRules(v: VaultView): Rule[] {
       summary: `${v.weeklyCap.display} a week (${v.weeklyRemaining.display} left)`,
       detail: "Payments that would go over this week's limit wait for a family member.",
       locked: true,
+      enforcedBy: "contract",
       limitCents: cents(v.weeklyCap),
     },
     {
@@ -213,6 +215,7 @@ function toRules(v: VaultView): Rule[] {
       summary: "Always ask family",
       detail: "Payments to someone who is not a saved payee wait for a family member.",
       locked: true,
+      enforcedBy: "contract",
       limitCents: null,
     },
     {
@@ -221,6 +224,7 @@ function toRules(v: VaultView): Rule[] {
       summary: `${v.bigAmountThreshold.display} and up needs two people`,
       detail: "Large held payments need two family guardians to approve.",
       locked: true,
+      enforcedBy: "contract",
       limitCents: cents(v.bigAmountThreshold),
     },
     {
@@ -229,15 +233,17 @@ function toRules(v: VaultView): Rule[] {
       summary: `${window} to approve`,
       detail: "If nobody approves a held payment in time, the money goes back to her balance.",
       locked: true,
+      enforcedBy: "contract",
       limitCents: null,
     },
     {
       id: "scams",
       title: "Scam warning signs",
-      summary: "Always refused",
+      summary: "Wait for family; strong signs refused",
       detail:
-        "Gift cards, secrecy and pressure are common scam signs. SafeNSound refuses the payment and pauses the account.",
+        "Gift cards, secrecy, requests for codes or card numbers, and callers pretending to be a bank or the government are common scam signs. Any of them makes a payment wait for a family member, even to someone she already pays; pressure to hurry adds to the risk. Strong signs are refused and pause her payments, and so does a scam call. SafeNSound checks for these; the contract enforces the pause.",
       locked: true,
+      enforcedBy: "safensound",
       limitCents: null,
     },
   ];

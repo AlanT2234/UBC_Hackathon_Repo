@@ -133,8 +133,11 @@ number. The higher score wins:
 2. **The voice agent's own judgement** (`scam_concern` on `request_payment`), which can only raise
    the risk.
 
-A strong scam signal refuses the payment, pauses all payments and alerts the guardians. For 15
-minutes after a scam call, even ordinary payments wait for a guardian. An optional Claude layer
+Any clear scam sign in what she says makes the payment wait for a guardian, even to someone she
+already pays; strong signs (several together, or the assistant judging it a clear scam) are refused
+and pause all payments. A scam call pauses payments too, and for 15 minutes after it even ordinary
+payments wait for a guardian. These checks are SafeNSound's, not the contract's (the Rules page says
+so); the contract enforces the resulting pause. An optional Claude layer
 (`backend/src/scam/llm.ts`) can be switched on with an Anthropic API key; it is off in the demo.
 
 ## Honest disclosure (demo shortcuts)

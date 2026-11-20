@@ -30,6 +30,8 @@ export type Rule = {
   detail: string;
   /** Hard rules stay on, even if a person asks the assistant to ignore them. */
   locked: boolean;
+  /** Who enforces it: the Solana program, or SafeNSound's scam checks (which then use the program's freeze). */
+  enforcedBy: "contract" | "safensound";
   limitCents: number | null;
 };
 

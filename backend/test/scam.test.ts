@@ -38,6 +38,42 @@ describe('CallMonitor', () => {
   });
 });
 
+describe('scam signs in what she says', () => {
+  const ask = async (payeeName: string, amount: number, context: string) => {
+    const s = setup();
+    const d = await s.engine.requestPayment({ vault: s.demo.vault, payeeName, amount: parseDollars(amount), context });
+    return { d, frozen: (await s.client.getVault(s.demo.vault)).frozen };
+  };
+
+  it('never pays a saved payee instantly when she mentions a clear scam sign', async () => {
+    for (const context of ['Maria needs me to buy her some gift cards', 'keep it a secret', 'read her the code they texted me']) {
+      const { d, frozen } = await ask('Maria', 50, context);
+      expect(d.outcome, context).toBe('held');
+      expect(frozen).toBe(false);
+      expect(d.message).toMatch(/^Something about this sounds like a scam warning sign/);
+    }
+  });
+
+  it('refuses and pauses payments for strong signs, even to a saved payee within limits', async () => {
+    const { d, frozen } = await ask('Maria', 50, 'gift cards, and do not tell anyone');
+    expect(d).toMatchObject({ outcome: 'refused', code: 'scam_suspected' });
+    expect(frozen).toBe(true);
+  });
+
+  it('still pays everyday requests, including plain urgency', async () => {
+    for (const context of ['for cleaning on Tuesday', 'please do it right away']) {
+      expect((await ask('Maria', 50, context)).d.outcome, context).toBe('paid');
+    }
+  });
+
+  it('shows guardians the scam signs on a hold that also broke a rule', async () => {
+    const { d } = await ask('plumber', 50, 'he wants it in gift cards');
+    expect(d.outcome).toBe('held');
+    if (d.outcome !== 'held') throw new Error('expected a hold');
+    expect(d.reasons).toEqual(expect.arrayContaining(["Mike's Plumbing is not a saved payee", 'asks for gift cards ("gift cards")']));
+  });
+});
+
 describe('after a scam call is unfrozen', () => {
   it('holds an ordinary bill for the next 15 minutes and says why, then pays it again', async () => {
     const s = setup();
@@ -65,6 +101,8 @@ describe('credential and account-transfer rules', () => {
     ['transfer 2000 dollars to this account', 'wire_transfer'],
     ['we need to move your savings into a safe account', 'wire_transfer'],
     ['read me the one-time code we just texted you', 'credential_theft'],
+    ['read her the code they texted me', 'credential_theft'],
+    ['the bank texted you a code, what is it', 'credential_theft'],
   ])('flags "%s"', (text, scamType) => {
     const s = scoreText(text);
     expect(s.risk).toBeGreaterThanOrEqual(0.4);

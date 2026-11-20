@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock } from "lucide-react";
+import { Lock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,10 +42,16 @@ export function RuleRow({ rule }: { rule: Rule }) {
       <div>
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">{rule.title}</h2>
-          {rule.locked ? (
+          {rule.locked && rule.enforcedBy === "contract" ? (
             <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <Lock className="h-3.5 w-3.5" aria-hidden="true" />
               Set by the contract
+            </span>
+          ) : null}
+          {rule.enforcedBy === "safensound" ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+              Checked by SafeNSound
             </span>
           ) : null}
         </div>

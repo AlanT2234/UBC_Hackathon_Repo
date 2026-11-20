@@ -35,7 +35,7 @@ interface ScamRule {
 const RULES: ScamRule[] = [
   {
     pattern:
-      /\b(passwords?|passcodes?|pin (number|code)|your pin|one[- ]time (code|password|passcode)|verification code|security code|login details|log ?in details)\b/i,
+      /\b(passwords?|passcodes?|pin (number|code)|your pin|one[- ]time (code|password|passcode)|verification code|security code|login details|log ?in details|codes? (that )?(they|we|you|i|someone|the bank) (just )?(texted|text|sent|emailed)|(texted|sent) (you|me|her|him) a code)\b/i,
     weight: 0.5,
     scamType: 'credential_theft',
     reason: 'asks for passwords or codes',

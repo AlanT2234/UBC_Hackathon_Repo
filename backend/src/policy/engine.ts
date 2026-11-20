@@ -14,12 +14,25 @@ import { scoreRisk, type RiskBreakdown } from './risk.js';
 export interface PolicyOptions {
   /** Below this (and with every hard rule passing) a payment goes through instantly. */
   holdThreshold: number;
-  /** At or above this the payment is refused; a scam cue this strong also freezes the vault. */
+  /**
+   * At or above this the payment is refused; a scam cue this strong also freezes the vault. A scam
+   * cue in what she said this strong is refused on its own, whoever the payee is.
+   */
   refuseThreshold: number;
+  /**
+   * A scam cue in what she said at or above this is never paid instantly, even to a saved payee
+   * within limits. Set above urgency alone ("right away"), below any single named scam sign.
+   */
+  scamHoldThreshold: number;
   velocityWindowSeconds: number;
 }
 
-export const DEFAULT_POLICY: PolicyOptions = { holdThreshold: 0.3, refuseThreshold: 0.6, velocityWindowSeconds: 600 };
+export const DEFAULT_POLICY: PolicyOptions = {
+  holdThreshold: 0.3,
+  refuseThreshold: 0.6,
+  scamHoldThreshold: 0.3,
+  velocityWindowSeconds: 600,
+};
 
 export interface PaymentRequest {
   vault: Pubkey;
@@ -140,7 +153,13 @@ export class PolicyEngine {
       recentRequests,
     });
 
-    if (risk.total >= this.opts.refuseThreshold) {
+    // Scam signs in this request's own words weigh more than the blended score: a coached senior
+    // asking to pay a trusted name is exactly the case the score alone would let through. A recent
+    // scam call still counts through the score, so a guardian's unfreeze isn't undone by the next bill.
+    const strongScamSaid = saidRisk.risk >= this.opts.refuseThreshold;
+    const scamSaid = saidRisk.risk >= this.opts.scamHoldThreshold;
+
+    if (risk.total >= this.opts.refuseThreshold || strongScamSaid) {
       const froze = scam.risk >= this.opts.refuseThreshold && (await this.sentinelFreeze(vault.address));
       const reasons = scam.reasons.length ? scam.reasons : ['this payment looks very unusual'];
       await this.deps.alerts.paymentRefused(vault.address, payee.name, amount, reasons, froze);
@@ -166,7 +185,7 @@ export class PolicyEngine {
     }
 
     const reasons = this.hardRuleFailures(vault, payee, amount);
-    if (reasons.length === 0 && risk.total < this.opts.holdThreshold) {
+    if (reasons.length === 0 && risk.total < this.opts.holdThreshold && !scamSaid) {
       try {
         const { signature } = await client.pay(vault.address, payee.recipient, amount);
         return {
@@ -185,7 +204,10 @@ export class PolicyEngine {
     // Every hard rule passed, so the risk score is what held it: say which part, not "over your limit".
     let cause: HoldCause = 'rules';
     if (reasons.length === 0) {
-      if (callRisk.risk > 0) {
+      if (scamSaid) {
+        cause = 'scam_cue';
+        reasons.push(...saidRisk.reasons);
+      } else if (callRisk.risk > 0) {
         cause = 'recent_call';
         reasons.push('a suspicious call to her in the last few minutes');
       } else if (saidRisk.risk > 0) {
@@ -196,6 +218,9 @@ export class PolicyEngine {
         reasons.push('this payment looks unusual');
       }
     }
+
+    // Guardians see the scam signs too, even when a broken rule is what the senior hears about.
+    if (scamSaid) for (const r of saidRisk.reasons) if (!reasons.includes(r)) reasons.push(r);
 
     try {
       const { signature, hold } = await client.requestHold(vault.address, payee.recipient, amount);
