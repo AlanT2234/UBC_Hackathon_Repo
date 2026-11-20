@@ -38,6 +38,26 @@ describe('CallMonitor', () => {
   });
 });
 
+describe('after a scam call is unfrozen', () => {
+  it('holds an ordinary bill for the next 15 minutes and says why, then pays it again', async () => {
+    const s = setup();
+    const call = s.calls.start(s.demo.vault, '+1 555 0142');
+    await s.calls.ingest(call.id, 'This is the fraud department at your bank. Read me the last four digits of your card right away.');
+    expect((await s.client.getVault(s.demo.vault)).frozen).toBe(true);
+    await s.client.unfreeze(s.demo.vault, s.demo.guardians.sam);
+
+    s.clock.advance(60);
+    const bill = { vault: s.demo.vault, payeeName: 'electric', amount: parseDollars(86.4) };
+    const held = await s.engine.requestPayment(bill);
+    expect(held).toMatchObject({ outcome: 'held', reasons: ['a suspicious call to her in the last few minutes'] });
+    expect(held.message).toMatch(/^There was a suspicious call on your line a few minutes ago/);
+    expect(held.message).not.toContain('usual limit');
+
+    s.clock.advance(16 * 60);
+    expect(await s.engine.requestPayment(bill)).toMatchObject({ outcome: 'paid' });
+  });
+});
+
 describe('credential and account-transfer rules', () => {
   it.each([
     ['the bank wants your passwords', 'credential_theft'],

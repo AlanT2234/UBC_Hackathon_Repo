@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "demo-audio": "node scripts/generate-demo-call-audio.mjs"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.12.0",

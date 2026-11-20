@@ -63,6 +63,9 @@ export type PaymentDecision =
     }
   | { outcome: 'clarify'; options: string[]; amount: Units; message: string };
 
+/** Why a payment that wasn't refused still went to a hold, for the message the senior hears. */
+type HoldCause = 'rules' | 'recent_call' | 'scam_cue' | 'unusual';
+
 export interface PolicyDeps {
   client: VaultClient;
   directory: PayeeDirectory;
@@ -126,7 +129,9 @@ export class PolicyEngine {
     }
     const payee = resolution;
 
-    const scam = maxScore(this.deps.calls.riskFor(vault.address), mergeScores(await said, req.agentConcern ?? NO_SCAM));
+    const callRisk = this.deps.calls.riskFor(vault.address);
+    const saidRisk = mergeScores(await said, req.agentConcern ?? NO_SCAM);
+    const scam = maxScore(callRisk, saidRisk);
     const risk = scoreRisk({
       newPayee: !payee.active,
       amount,
@@ -177,11 +182,24 @@ export class PolicyEngine {
         reasons.push(err.message.toLowerCase());
       }
     }
-    if (reasons.length === 0) reasons.push('this payment looks unusual');
+    // Every hard rule passed, so the risk score is what held it: say which part, not "over your limit".
+    let cause: HoldCause = 'rules';
+    if (reasons.length === 0) {
+      if (callRisk.risk > 0) {
+        cause = 'recent_call';
+        reasons.push('a suspicious call to her in the last few minutes');
+      } else if (saidRisk.risk > 0) {
+        cause = 'scam_cue';
+        reasons.push(...saidRisk.reasons);
+      } else {
+        cause = 'unusual';
+        reasons.push('this payment looks unusual');
+      }
+    }
 
     try {
       const { signature, hold } = await client.requestHold(vault.address, payee.recipient, amount);
-      return { outcome: 'held', payee, amount, hold, signature, reasons, risk, message: this.heldMessage(vault, payee, hold) };
+      return { outcome: 'held', payee, amount, hold, signature, reasons, risk, message: this.heldMessage(vault, payee, hold, cause) };
     } catch (err) {
       if (isVaultError(err, 'TooManyHolds')) {
         return this.refused(
@@ -228,7 +246,7 @@ export class PolicyEngine {
     return reasons;
   }
 
-  private heldMessage(vault: VaultState, payee: ResolvedPayee, hold: Hold): string {
+  private heldMessage(vault: VaultState, payee: ResolvedPayee, hold: Hold, cause: HoldCause): string {
     const names = vault.guardians.map((g) => this.deps.directory.label(g)).filter((n): n is string => !!n);
     const who =
       hold.approvalsRequired === 2
@@ -238,11 +256,18 @@ export class PolicyEngine {
           : names.length > 1
             ? `${names[0]} and your other guardians`
             : 'your guardian';
-    const why = payee.active
-      ? "That's more than your usual limit"
-      : payee.allowlisted
-        ? `${payee.name} was only added recently`
-        : `I don't know ${payee.name} yet`;
+    const why =
+      cause === 'recent_call'
+        ? 'There was a suspicious call on your line a few minutes ago'
+        : cause === 'scam_cue'
+          ? 'Something about this sounds like a scam warning sign'
+          : cause === 'unusual'
+            ? 'This one looks a little unusual'
+            : payee.active
+              ? "That's more than your usual limit"
+              : payee.allowlisted
+                ? `${payee.name} was only added recently`
+                : `I don't know ${payee.name} yet`;
     return `${why}, so I've put ${spokenUsd(hold.amount)} on hold and asked ${who} to approve it. Your money is safe in the meantime, and if nobody approves it, it comes back to your balance.`;
   }
 
