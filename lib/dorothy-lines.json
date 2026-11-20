@@ -1,5 +1,5 @@
 {
-  "voice": { "name": "SafeNSound Dorothy", "voiceId": "bEjJgPDkrytYmfxqCBBB" },
+  "voice": { "name": "SafeNSound Dorothy (voice 3)", "voiceId": "NZ6fg44OhE8HGe0bo4sy" },
   "lines": [
     { "file": "01-city-electric.mp3", "scene": 2, "text": "Pay City Electric eighty-six dollars and forty cents for the electric bill." },
     { "file": "02-yes-please.mp3", "scene": 2, "text": "Yes, please." },

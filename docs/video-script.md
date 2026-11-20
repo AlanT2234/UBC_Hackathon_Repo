@@ -5,7 +5,7 @@ Drive and viewable by the judges. Target length: **≈2:55**. The narration is a
 rest of the time is demo audio and pauses.
 
 - **Narrator**: the voiceover.
-- **Dorothy**: an ElevenLabs voice ("SafeNSound Dorothy", made with Voice Design). Play the named
+- **Dorothy**: an ElevenLabs voice ("SafeNSound Dorothy (voice 3)", made with Voice Design). Play the named
   MP3 from `media/dorothy/` (dashboard repo) near the laptop's microphone so the voice agent hears
   it. Regenerate them with `npm run dorothy-lines`.
 - *(Agent: …)*: what SafeNSound says back. Its wording varies a little between takes.
@@ -118,7 +118,7 @@ Setup, recording tips and troubleshooting are in [elevenlabs-setup.md](elevenlab
   If the agent's reply gets cut off by your playback, wait a beat longer. All seven clips were
   checked with ElevenLabs speech-to-text and transcribe word for word. `07-whats-my-balance.mp3` is
   for the pre-recording smoke test.
-- **Same Dorothy everywhere.** The scam call's Dorothy lines use the same "SafeNSound Dorothy" voice
+- **Same Dorothy everywhere.** The scam call's Dorothy lines use the same "SafeNSound Dorothy (voice 3)" voice
   (`npm run demo-audio`), so she sounds like one person across the video.
 
 - **Don't imply live phone listening.** The Twilio call bridge isn't built, which is why Scene 5
