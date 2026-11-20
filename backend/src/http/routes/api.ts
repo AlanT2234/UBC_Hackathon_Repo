@@ -2,10 +2,11 @@ import { PublicKey } from '@solana/web3.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { parseDollars } from '../../money.js';
+import type { PaymentRecord } from '../../payments/log.js';
 import type { Services } from '../../services.js';
 import { isVaultError } from '../../vault/errors.js';
 import { requireToken } from '../auth.js';
-import { eventView, holdView, payeeView, vaultView } from '../views.js';
+import { decisionView, eventView, holdView, payeeView, paymentView, vaultView } from '../views.js';
 
 const pubkey = z.string().refine((s) => {
   try {
@@ -30,6 +31,11 @@ const CallBody = z.object({ caller: z.string().max(40).optional() });
 const TranscriptBody = z.object({ text: z.string().min(1).max(5000) });
 const ForcePayBody = z.object({ payee_name: z.string().min(1), amount: z.union([z.number(), z.string()]) });
 const FundBody = z.object({ amount: z.union([z.number(), z.string()]) });
+const PaymentBody = z.object({
+  payee_name: z.string().trim().min(1).max(120),
+  amount: z.union([z.number(), z.string()]),
+  memo: z.string().max(1000).optional(),
+});
 
 /**
  * Dashboard API (senior + guardians). Demo shortcut: guardian and senior keys are server-held,
@@ -55,6 +61,13 @@ export async function apiRoutes(app: FastifyInstance, s: Services): Promise<void
     const result = await s.client.addPayee(vault, body.signer, body.recipient);
     s.directory.register({ name: body.name, recipient: body.recipient, vault, aliases: body.aliases, kind: 'payee' });
     return { signature: result.signature, payee: payeeView(result.payee, s.now(), s.directory) };
+  });
+
+  /** Every payment request with its outcome, newest first (including refusals that never hit the chain). */
+  app.get('/vaults/:vault/payments', async (req) => {
+    const { vault } = VaultParams.parse(req.params);
+    const now = s.now();
+    return s.payments.list(vault).map((p) => paymentView(p, now, s.directory, s.config.cluster));
   });
 
   app.get('/vaults/:vault/holds', async (req) => {
@@ -98,7 +111,10 @@ export async function apiRoutes(app: FastifyInstance, s: Services): Promise<void
     return s.bus.history(vault).map((e) => eventView(e, s.config.cluster));
   });
 
-  /** Server-sent events: `vault` for program events, `call` for live call transcripts and scores. */
+  /**
+   * Server-sent events: `vault` for program events, `payment` for payment history changes
+   * (refusals included), `call` for live call transcripts and scores.
+   */
   app.get('/events/stream', (req, reply) => {
     reply.hijack();
     const res = reply.raw;
@@ -114,11 +130,14 @@ export async function apiRoutes(app: FastifyInstance, s: Services): Promise<void
     const offBus = s.bus.subscribe((e) => send('vault', eventView(e, s.config.cluster)));
     const onCall = (c: unknown) => send('call', c);
     s.calls.on('update', onCall);
+    const onPayment = (p: PaymentRecord) => send('payment', paymentView(p, s.now(), s.directory, s.config.cluster));
+    s.payments.on('update', onPayment);
     const ping = setInterval(() => res.write(': ping\n\n'), 25_000);
     req.raw.on('close', () => {
       clearInterval(ping);
       offBus();
       s.calls.off('update', onCall);
+      s.payments.off('update', onPayment);
     });
     send('ready', { vault: s.defaultVault });
   });
@@ -163,6 +182,18 @@ export async function apiRoutes(app: FastifyInstance, s: Services): Promise<void
         }
         throw err;
       }
+    });
+
+    /** The senior tablet's sample requests: the same policy engine path as the voice agent's tool call. */
+    app.post('/demo/request-payment', async (req) => {
+      const body = PaymentBody.parse(req.body);
+      const decision = await s.engine.requestPayment({
+        vault: s.defaultVault,
+        payeeName: body.payee_name,
+        amount: parseDollars(body.amount),
+        context: body.memo,
+      });
+      return decisionView(decision, s.config.cluster);
     });
 
     app.post('/demo/fund', async (req) => {

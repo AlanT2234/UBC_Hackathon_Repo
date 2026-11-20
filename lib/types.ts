@@ -9,6 +9,10 @@ export type Payment = {
   reason: string;
   requestedAt: string;
   decidedAt: string | null;
+  /** Guardian keys that have approved a held payment. */
+  approvals: string[];
+  approvalsRequired: number;
+  explorerUrl: string | null;
 };
 
 export type Rule = {

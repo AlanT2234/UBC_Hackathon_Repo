@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ConnectionNotice } from "@/components/connection-notice";
 import { ContractNotice } from "@/components/contract-notice";
 import { useGuardian } from "@/lib/use-guardian";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,9 @@ export function FamilyShell({ children }: { children: React.ReactNode }) {
           <ContractNotice className="mt-auto hidden md:flex" />
         </aside>
         <div className="flex flex-col">
+          <div className="px-4 pt-6 empty:hidden sm:px-8">
+            <ConnectionNotice />
+          </div>
           <main className="flex-1 px-4 py-6 sm:px-8">{children}</main>
           <div className="px-4 pb-6 md:hidden">
             <ContractNotice />

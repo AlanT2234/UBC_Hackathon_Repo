@@ -1,393 +1,427 @@
-import { formatDollars } from "@/lib/format";
-import type { Account, Payment, Rule, VoiceRequest } from "@/lib/types";
+import type { Account, AgentPhase, Payment, Rule, VoiceRequest } from "@/lib/types";
 
 /**
- * Mock of the Arc contract. The assistant and the screens call only these
- * functions. Nothing here can be skipped from the UI: approve, decline, and
- * a spoken request all run through decide().
+ * Client for the SafeSpend backend. The assistant and the screens call only these functions.
+ * Nothing here decides anything: the backend's policy engine routes each request and the
+ * Solana program enforces the limits. Screens read a snapshot that refreshes over SSE.
  */
 
-const SENIOR_NAME = "Margaret Hale";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787").replace(/\/$/, "");
+// Demo shortcut: the dashboard token ships in the browser bundle. Fine for a local demo only.
+const TOKEN = process.env.NEXT_PUBLIC_DASHBOARD_TOKEN ?? "";
 
-const KNOWN_RECIPIENTS = [
-  "city power",
-  "greenline pharmacy",
-  "oak street dental",
-  "maple market",
-];
+type Usd = { units: string; display: string };
 
-function atHour(daysAgo: number, hour: number, minute: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  date.setHours(hour, minute, 0, 0);
-  return date.toISOString();
+type VaultView = {
+  address: string;
+  owner: string | null;
+  balance: Usd;
+  perPaymentLimit: Usd;
+  weeklyCap: Usd;
+  weeklyRemaining: Usd;
+  bigAmountThreshold: Usd;
+  frozen: boolean;
+  unfreezeEffectiveAt: number | null;
+  guardians: { key: string; name: string | null; professional: boolean }[];
+  holdSeconds: number;
+};
+
+type PaymentView = {
+  id: string;
+  payee: string;
+  amount: Usd;
+  memo: string | null;
+  status: "paid" | "held" | "refused" | "declined" | "expired";
+  reasons: string[];
+  requestedAt: number;
+  decidedAt: number | null;
+  hold: string | null;
+  expiresInSeconds: number | null;
+  approvalsRequired: number;
+  approvals: { key: string; name: string | null }[];
+  explorerUrl: string | null;
+};
+
+type DecisionView = {
+  outcome: "paid" | "held" | "refused" | "clarify" | "error";
+  message: string;
+};
+
+type DemoIds = {
+  vault: string;
+  senior: string;
+  guardians: Record<string, string>;
+};
+
+export type Connection = "connecting" | "live" | "offline";
+
+export type Guardian = { key: string; name: string };
+
+export type Snapshot = {
+  connection: Connection;
+  account: Account;
+  payments: Payment[];
+  rules: Rule[];
+  frozen: boolean;
+  guardians: Guardian[];
+};
+
+class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly code: string | null,
+  ) {
+    super(message);
+  }
 }
 
-function seedRules(): Rule[] {
+async function request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: init?.method ?? "GET",
+      headers: {
+        ...(init?.body === undefined ? {} : { "content-type": "application/json" }),
+        ...(TOKEN ? { authorization: `Bearer ${TOKEN}` } : {}),
+      },
+      body: init?.body === undefined ? undefined : JSON.stringify(init.body),
+    });
+  } catch {
+    throw new ApiError("SafeSpend could not be reached. Check that the backend is running.", null);
+  }
+  const data = (await res.json().catch(() => null)) as
+    | (T & { error?: string; message?: string })
+    | null;
+  if (!res.ok) {
+    throw new ApiError(errorMessage(data?.error ?? null, data?.message), data?.error ?? null);
+  }
+  return data as T;
+}
+
+const ERROR_MESSAGES: Record<string, string> = {
+  Frozen: "Payments are paused. Unfreeze the account first.",
+  HoldExpired: "This payment expired. The money went back to her balance.",
+  HoldNotFound: "This payment is already finished.",
+  AlreadyApproved: "You already approved this payment.",
+  NotGuardian: "Only a family guardian can do this.",
+  NotFrozen: "Payments are not paused.",
+  AlreadyFrozen: "Payments are already paused.",
+  unauthorized: "The dashboard token was not accepted.",
+};
+
+function errorMessage(code: string | null, message?: string): string {
+  if (code && ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
+  return message ?? "SafeSpend did not answer. Try again.";
+}
+
+function cents(usd: Usd): number {
+  // Base units have 6 decimals; the screens work in cents.
+  return Number(BigInt(usd.units) / BigInt(10_000));
+}
+
+function iso(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toISOString();
+}
+
+function sentence(text: string): string {
+  return text ? `${text[0].toUpperCase()}${text.slice(1)}` : text;
+}
+
+function reasonFor(p: PaymentView): string {
+  const why = p.reasons.map(sentence).join(". ");
+  switch (p.status) {
+    case "paid":
+      if (p.hold) {
+        const names = p.approvals.map((a) => a.name ?? "A guardian").join(" and ");
+        return `${names || "Family"} approved it. The program sent the payment.`;
+      }
+      return "Within her limits. The program sent the payment.";
+    case "held": {
+      const waiting =
+        p.approvalsRequired > 1
+          ? `It needs ${p.approvalsRequired} family approvals (${p.approvals.length} so far).`
+          : "A family member must approve it.";
+      return `${why ? `${why}. ` : ""}${waiting}`;
+    }
+    case "refused":
+      return `Refused: ${p.reasons.join(", ") || "this looked unusual"}. No money moved.`;
+    case "declined":
+      return "Family declined this payment. The money went back to her balance.";
+    case "expired":
+      return "Nobody approved it in time, so the money went back to her balance.";
+  }
+}
+
+function toPayment(p: PaymentView): Payment {
+  return {
+    id: p.id,
+    amountCents: cents(p.amount),
+    recipientName: p.payee,
+    purpose: p.memo ?? "",
+    status: p.status === "paid" ? "paid" : p.status === "held" ? "held" : "blocked",
+    reason: reasonFor(p),
+    requestedAt: iso(p.requestedAt),
+    decidedAt: p.decidedAt === null ? null : iso(p.decidedAt),
+    approvals: p.approvals.map((a) => a.key),
+    approvalsRequired: p.approvalsRequired,
+    explorerUrl: p.explorerUrl,
+  };
+}
+
+function toRules(v: VaultView): Rule[] {
+  const hours = Math.round(v.holdSeconds / 3600);
+  const window = hours >= 1 ? `${hours} hour${hours === 1 ? "" : "s"}` : `${Math.round(v.holdSeconds / 60)} minutes`;
   return [
-    {
-      id: "daily",
-      title: "Daily limit",
-      summary: "$200 a day",
-      detail: "Payments that would go over today's limit wait for a family member.",
-      locked: false,
-      limitCents: 20000,
-    },
     {
       id: "single",
       title: "Single payment",
-      summary: "$100 at a time",
-      detail: "A larger payment to someone she already pays waits for a family member.",
-      locked: false,
-      limitCents: 10000,
+      summary: `${v.perPaymentLimit.display} at a time`,
+      detail: "A larger payment, even to someone she already pays, waits for a family member.",
+      locked: true,
+      limitCents: cents(v.perPaymentLimit),
+    },
+    {
+      id: "weekly",
+      title: "Weekly limit",
+      summary: `${v.weeklyCap.display} a week (${v.weeklyRemaining.display} left)`,
+      detail: "Payments that would go over this week's limit wait for a family member.",
+      locked: true,
+      limitCents: cents(v.weeklyCap),
     },
     {
       id: "new-person",
       title: "New people",
       summary: "Always ask family",
-      detail: "The first payment to someone new waits for a family member.",
+      detail: "Payments to someone who is not a saved payee wait for a family member.",
       locked: true,
       limitCents: null,
     },
     {
-      id: "gift-cards",
-      title: "Gift cards",
-      summary: "Always blocked",
-      detail: "Gift cards are a common scam. The contract refuses them. No one can turn this off.",
+      id: "big",
+      title: "Big payments",
+      summary: `${v.bigAmountThreshold.display} and up needs two people`,
+      detail: "Large held payments need two family guardians to approve.",
+      locked: true,
+      limitCents: cents(v.bigAmountThreshold),
+    },
+    {
+      id: "window",
+      title: "Approval window",
+      summary: `${window} to approve`,
+      detail: "If nobody approves a held payment in time, the money goes back to her balance.",
+      locked: true,
+      limitCents: null,
+    },
+    {
+      id: "scams",
+      title: "Scam warning signs",
+      summary: "Always refused",
+      detail:
+        "Gift cards, secrecy and pressure are common scam signs. SafeSpend refuses the payment and pauses the account.",
       locked: true,
       limitCents: null,
     },
   ];
 }
 
-function seedPayments(): Payment[] {
-  return [
-    {
-      id: "pay_dental",
-      amountCents: 24000,
-      recipientName: "Oak Street Dental",
-      purpose: "Cleaning and checkup",
-      status: "held",
-      reason:
-        "This is over the single-payment limit of $100.00, so a family member must approve it.",
-      requestedAt: atHour(0, 9, 40),
-      decidedAt: null,
-    },
-    {
-      id: "pay_power",
-      amountCents: 8640,
-      recipientName: "City Power",
-      purpose: "Electric bill",
-      status: "paid",
-      reason: "Within the rules. The contract sent the payment.",
-      requestedAt: atHour(1, 11, 5),
-      decidedAt: atHour(1, 11, 5),
-    },
-    {
-      id: "pay_pharmacy",
-      amountCents: 4218,
-      recipientName: "Greenline Pharmacy",
-      purpose: "Prescription",
-      status: "paid",
-      reason: "Within the rules. The contract sent the payment.",
-      requestedAt: atHour(1, 16, 20),
-      decidedAt: atHour(1, 16, 20),
-    },
-    {
-      id: "pay_market",
-      amountCents: 6320,
-      recipientName: "Maple Market",
-      purpose: "Groceries",
-      status: "paid",
-      reason: "Within the rules. The contract sent the payment.",
-      requestedAt: atHour(2, 13, 15),
-      decidedAt: atHour(2, 13, 15),
-    },
-    {
-      id: "pay_gift",
-      amountCents: 50000,
-      recipientName: "Quick Gift Cards",
-      purpose: "Gift cards",
-      status: "blocked",
-      reason: "Gift cards are always blocked by the contract.",
-      requestedAt: atHour(3, 19, 2),
-      decidedAt: atHour(3, 19, 2),
-    },
-  ];
-}
+// ---------------------------------------------------------------------------------------------
+// Snapshot store
 
-type State = {
-  balanceCents: number;
-  rules: Rule[];
-  payments: Payment[];
+let snapshot: Snapshot = {
+  connection: "connecting",
+  account: { seniorName: "there", balanceCents: 0, pendingCount: 0 },
+  payments: [],
+  rules: [],
+  frozen: false,
+  guardians: [],
 };
 
-let state: State = {
-  balanceCents: 428016,
-  rules: seedRules(),
-  payments: seedPayments(),
-};
+let ids: DemoIds | null = null;
+const listeners = new Set<() => void>();
+let source: EventSource | null = null;
+let refreshing: Promise<void> | null = null;
+let again = false;
 
-type Listener = () => void;
-const listeners = new Set<Listener>();
-
-export type Snapshot = {
-  account: Account;
-  payments: Payment[];
-  rules: Rule[];
-};
-
-let snapshot: Snapshot = buildSnapshot();
-
-function buildSnapshot(): Snapshot {
-  const pendingCount = state.payments.filter((payment) => payment.status === "held").length;
-  return {
-    account: {
-      seniorName: SENIOR_NAME,
-      balanceCents: state.balanceCents,
-      pendingCount,
-    },
-    payments: state.payments,
-    rules: state.rules,
-  };
-}
-
-function commit() {
-  snapshot = buildSnapshot();
+function commit(next: Partial<Snapshot>) {
+  snapshot = { ...snapshot, ...next };
   listeners.forEach((listener) => listener());
 }
 
-export function subscribe(listener: Listener): () => void {
+async function demoIds(): Promise<DemoIds> {
+  ids ??= await request<DemoIds>("/api/demo");
+  return ids;
+}
+
+async function load(): Promise<void> {
+  const { vault } = await demoIds();
+  const [v, payments] = await Promise.all([
+    request<VaultView>(`/api/vaults/${vault}`),
+    request<PaymentView[]>(`/api/vaults/${vault}/payments`),
+  ]);
+  const list = payments.map(toPayment);
+  commit({
+    connection: "live",
+    account: {
+      seniorName: v.owner ?? "your family member",
+      balanceCents: cents(v.balance),
+      pendingCount: list.filter((p) => p.status === "held").length,
+    },
+    payments: list,
+    rules: toRules(v),
+    frozen: v.frozen,
+    guardians: v.guardians
+      .filter((g) => !g.professional)
+      .map((g) => ({ key: g.key, name: g.name ?? "Guardian" })),
+  });
+}
+
+/** Coalesces bursts of SSE events into one reload at a time. */
+export function refresh(): Promise<void> {
+  if (refreshing) {
+    again = true;
+    return refreshing;
+  }
+  refreshing = load()
+    .catch(() => commit({ connection: "offline" }))
+    .finally(() => {
+      refreshing = null;
+      if (again) {
+        again = false;
+        void refresh();
+      }
+    });
+  return refreshing;
+}
+
+function connect() {
+  if (source || typeof window === "undefined") return;
+  const query = TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : "";
+  source = new EventSource(`${API_URL}/api/events/stream${query}`);
+  source.addEventListener("ready", () => void refresh());
+  source.addEventListener("vault", () => void refresh());
+  source.addEventListener("payment", () => void refresh());
+  source.onerror = () => {
+    // EventSource reconnects by itself; show offline until the next successful load.
+    if (source?.readyState !== EventSource.OPEN) commit({ connection: "offline" });
+  };
+}
+
+function disconnect() {
+  source?.close();
+  source = null;
+}
+
+export function subscribe(listener: () => void): () => void {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  if (listeners.size === 1) {
+    connect();
+    void refresh();
+  }
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) disconnect();
+  };
 }
 
 export function getSnapshot(): Snapshot {
   return snapshot;
 }
 
-function wait(ms = 700): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// ---------------------------------------------------------------------------------------------
+// Actions
 
-function rule(id: string): Rule {
-  const found = state.rules.find((item) => item.id === id);
-  if (!found) throw new Error(`Missing rule ${id}`);
+function findPayment(id: string): Payment {
+  const found = snapshot.payments.find((payment) => payment.id === id);
+  if (!found) throw new ApiError("That payment could not be found.", null);
   return found;
 }
 
-function isGiftCard(recipientName: string, purpose: string): boolean {
-  const text = `${recipientName} ${purpose}`.toLowerCase();
-  return text.includes("gift card");
+/** Demo: the family view acts as whichever family guardian has not approved yet. */
+export function approverFor(payment: Payment): Guardian | null {
+  return snapshot.guardians.find((g) => !payment.approvals.includes(g.key)) ?? null;
 }
 
-function isKnown(recipientName: string): boolean {
-  const name = recipientName.trim().toLowerCase();
-  if (KNOWN_RECIPIENTS.includes(name)) return true;
-  return state.payments.some(
-    (payment) =>
-      payment.recipientName.toLowerCase() === name && payment.status === "paid",
-  );
-}
-
-function spentToday(): number {
-  const now = new Date();
-  return state.payments
-    .filter((payment) => {
-      if (payment.status !== "paid" || !payment.decidedAt) return false;
-      const decided = new Date(payment.decidedAt);
-      return (
-        decided.getFullYear() === now.getFullYear() &&
-        decided.getMonth() === now.getMonth() &&
-        decided.getDate() === now.getDate()
-      );
-    })
-    .reduce((sum, payment) => sum + payment.amountCents, 0);
-}
-
-/** The contract. Callers receive a decision. They do not choose the status. */
-function decide(input: VoiceRequest): Pick<Payment, "status" | "reason"> {
-  if (isGiftCard(input.recipientName, input.purpose)) {
-    return {
-      status: "blocked",
-      reason: "Gift cards are always blocked by the contract.",
-    };
-  }
-
-  if (!isKnown(input.recipientName)) {
-    return {
-      status: "held",
-      reason: "This person is new, so a family member must approve the payment.",
-    };
-  }
-
-  const single = rule("single").limitCents ?? 0;
-  if (input.amountCents > single) {
-    return {
-      status: "held",
-      reason: `This is over the single-payment limit of ${formatDollars(single)}, so a family member must approve it.`,
-    };
-  }
-
-  const daily = rule("daily").limitCents ?? 0;
-  if (spentToday() + input.amountCents > daily) {
-    return {
-      status: "held",
-      reason: `This would go over today's limit of ${formatDollars(daily)}, so a family member must approve it.`,
-    };
-  }
-
-  return {
-    status: "paid",
-    reason: "Within the rules. The contract sent the payment.",
-  };
-}
-
-export async function getAccount(): Promise<Account> {
-  await wait(120);
-  return getSnapshot().account;
-}
-
-export async function listPayments(): Promise<Payment[]> {
-  await wait(120);
-  return getSnapshot().payments;
-}
-
-export async function getPayment(id: string): Promise<Payment | null> {
-  await wait(120);
-  return getSnapshot().payments.find((payment) => payment.id === id) ?? null;
-}
-
-export async function listRules(): Promise<Rule[]> {
-  await wait(120);
-  return getSnapshot().rules;
-}
-
-export async function saveRule(id: string, limitCents: number): Promise<Rule> {
-  await wait();
-  const current = rule(id);
-  if (current.locked || current.limitCents === null) {
-    throw new Error("This rule is enforced by the contract and cannot be changed here.");
-  }
-  if (!Number.isFinite(limitCents) || limitCents < 0) {
-    throw new Error("Enter a dollar amount.");
-  }
-
-  const summary =
-    id === "daily"
-      ? `${formatDollars(limitCents)} a day`
-      : `${formatDollars(limitCents)} at a time`;
-
-  state = {
-    ...state,
-    rules: state.rules.map((item) =>
-      item.id === id ? { ...item, limitCents, summary } : item,
-    ),
-  };
-  commit();
-  return rule(id);
-}
-
-export async function submitVoicePayment(input: VoiceRequest): Promise<Payment> {
-  await wait();
-  const decision = decide(input);
-  const now = new Date().toISOString();
-  const payment: Payment = {
-    id: `pay_${Date.now()}`,
-    amountCents: input.amountCents,
-    recipientName: input.recipientName,
-    purpose: input.purpose,
-    status: decision.status,
-    reason: decision.reason,
-    requestedAt: now,
-    decidedAt: decision.status === "held" ? null : now,
-  };
-
-  const balanceCents =
-    decision.status === "paid" ? state.balanceCents - input.amountCents : state.balanceCents;
-
-  state = {
-    ...state,
-    balanceCents,
-    payments: [payment, ...state.payments],
-  };
-  commit();
-  return payment;
+function actingGuardian(): Guardian {
+  const guardian = snapshot.guardians[0];
+  if (!guardian) throw new ApiError("SafeSpend is still loading. Try again.", null);
+  return guardian;
 }
 
 export async function approvePayment(id: string): Promise<Payment> {
-  await wait();
-  const current = state.payments.find((payment) => payment.id === id);
-  if (!current) throw new Error("That payment could not be found.");
-  if (current.status !== "held") return current;
-
-  const now = new Date().toISOString();
-  let next: Payment;
-
-  if (isGiftCard(current.recipientName, current.purpose)) {
-    next = {
-      ...current,
-      status: "blocked",
-      decidedAt: now,
-      reason: "The contract blocked this. Family approval cannot override it.",
-    };
-  } else {
-    next = {
-      ...current,
-      status: "paid",
-      decidedAt: now,
-      reason: "A family member approved it. The contract sent the payment.",
-    };
-  }
-
-  state = {
-    ...state,
-    balanceCents:
-      next.status === "paid" ? state.balanceCents - next.amountCents : state.balanceCents,
-    payments: state.payments.map((payment) => (payment.id === id ? next : payment)),
-  };
-  commit();
-  return next;
+  const { vault } = await demoIds();
+  const guardian = approverFor(findPayment(id));
+  if (!guardian) throw new ApiError("Every family guardian has already approved this.", null);
+  await request(`/api/vaults/${vault}/holds/${id}/approve`, {
+    method: "POST",
+    body: { guardian: guardian.key },
+  });
+  await refresh();
+  return findPayment(id);
 }
 
 export async function declinePayment(id: string): Promise<Payment> {
-  await wait();
-  const current = state.payments.find((payment) => payment.id === id);
-  if (!current) throw new Error("That payment could not be found.");
-  if (current.status !== "held") return current;
+  const { vault } = await demoIds();
+  await request(`/api/vaults/${vault}/holds/${id}/reject`, {
+    method: "POST",
+    body: { signer: actingGuardian().key },
+  });
+  await refresh();
+  return findPayment(id);
+}
 
-  const next: Payment = {
-    ...current,
-    status: "blocked",
-    decidedAt: new Date().toISOString(),
-    reason: "Your family declined this payment. The contract did not send it.",
-  };
+export async function setFrozen(frozen: boolean): Promise<void> {
+  const { vault } = await demoIds();
+  await request(`/api/vaults/${vault}/${frozen ? "freeze" : "unfreeze"}`, {
+    method: "POST",
+    body: { guardian: actingGuardian().key },
+  });
+  await refresh();
+}
 
-  state = {
-    ...state,
-    payments: state.payments.map((payment) => (payment.id === id ? next : payment)),
-  };
-  commit();
-  return next;
+export async function saveRule(id: string, limitCents: number): Promise<Rule> {
+  void id;
+  void limitCents;
+  // Limit changes go through the program's 24-hour waiting period, which has no API yet.
+  throw new ApiError("Limits are set in the program and can't be changed from here yet.", null);
+}
+
+const OUTCOME_PHASE: Record<DecisionView["outcome"], AgentPhase> = {
+  paid: "paid",
+  held: "held",
+  refused: "blocked",
+  clarify: "listening",
+  error: "idle",
+};
+
+/** Runs a spoken request through the same policy engine path as the voice agent's tool call. */
+export async function submitVoicePayment(
+  input: VoiceRequest,
+): Promise<{ phase: AgentPhase; message: string }> {
+  const decision = await request<DecisionView>("/api/demo/request-payment", {
+    method: "POST",
+    body: { payee_name: input.recipientName, amount: input.amountCents / 100, memo: input.said },
+  });
+  void refresh();
+  return { phase: OUTCOME_PHASE[decision.outcome], message: decision.message };
 }
 
 export const SAMPLE_REQUESTS: VoiceRequest[] = [
   {
-    recipientName: "City Power",
+    recipientName: "City Electric",
     purpose: "Electric bill",
     amountCents: 8640,
-    said: "Please pay City Power $86.40 for the electric bill.",
+    said: "Please pay City Electric $86.40 for the electric bill.",
   },
   {
-    recipientName: "Daniel Okonkwo",
+    recipientName: "Mike's Plumbing",
+    purpose: "Fixed the kitchen sink",
+    amountCents: 40000,
+    said: "Pay Mike's Plumbing $400. He fixed the kitchen sink.",
+  },
+  {
+    recipientName: "Daniel",
     purpose: "He said the bank needed this today",
-    amountCents: 150000,
-    said: "Please send $1,500.00 to Daniel. He said the bank needs it today.",
-  },
-  {
-    recipientName: "Quick Gift Cards",
-    purpose: "Gift cards",
     amountCents: 50000,
-    said: "Please buy $500.00 in gift cards.",
+    said: "Send Daniel $500 in gift cards. He said the bank needs it today and not to tell anyone.",
   },
 ];

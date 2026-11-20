@@ -3,6 +3,7 @@ import type { Clock, Hold, Pubkey, Units, VaultState } from '../domain/types.js'
 import type { AlertService } from '../alerts/service.js';
 import { spokenUsd } from '../money.js';
 import type { PayeeDirectory } from '../payees/directory.js';
+import type { PaymentLog } from '../payments/log.js';
 import type { CallMonitor } from '../scam/monitor.js';
 import { NO_SCAM, maxScore, scoreText } from '../scam/rules.js';
 import type { VaultClient } from '../vault/client.js';
@@ -65,6 +66,8 @@ export interface PolicyDeps {
   calls: CallMonitor;
   alerts: AlertService;
   now: Clock;
+  /** Records every decision for the dashboard's payment history. */
+  payments?: PaymentLog;
 }
 
 /**
@@ -81,7 +84,13 @@ export class PolicyEngine {
   ) {}
 
   async requestPayment(req: PaymentRequest): Promise<PaymentDecision> {
-    const { client, now } = this.deps;
+    const decision = await this.decide(req);
+    this.deps.payments?.noteDecision(req, decision);
+    return decision;
+  }
+
+  private async decide(req: PaymentRequest): Promise<PaymentDecision> {
+    const { client } = this.deps;
     const { amount } = req;
     if (amount <= 0n) {
       return this.refused('invalid_amount', null, amount, [], null, "I didn't catch the amount. How much would you like to send?");

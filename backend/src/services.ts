@@ -6,6 +6,7 @@ import { EventBus } from './events/bus.js';
 import { DeadlineScheduler } from './jobs/scheduler.js';
 import type { Logger } from './logger.js';
 import { PayeeDirectory } from './payees/directory.js';
+import { PaymentLog } from './payments/log.js';
 import { PolicyEngine } from './policy/engine.js';
 import { CallMonitor } from './scam/monitor.js';
 import { seedDemo } from './seed.js';
@@ -33,9 +34,12 @@ export function createServices(config: Config, deps: { log: Logger; now?: Clock;
   const scheduler = new DeadlineScheduler(client, now, log);
   scheduler.attach(bus);
 
+  const payments = new PaymentLog(directory, now);
+  payments.attach(bus);
+
   const calls = new CallMonitor(client, alerts, now, log);
-  const engine = new PolicyEngine({ client, directory, calls, alerts, now });
+  const engine = new PolicyEngine({ client, directory, calls, alerts, now, payments });
   const demo = seedDemo(client, directory, { holdSeconds: config.demoHoldSeconds });
 
-  return { config, log, now, bus, directory, client, alerts, scheduler, calls, engine, demo, defaultVault: demo.vault };
+  return { config, log, now, bus, directory, client, alerts, scheduler, calls, payments, engine, demo, defaultVault: demo.vault };
 }

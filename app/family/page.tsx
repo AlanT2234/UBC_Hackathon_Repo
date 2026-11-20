@@ -2,11 +2,12 @@
 
 import { ApprovalRow } from "@/components/family/approval-row";
 import { ActivityTable } from "@/components/family/activity-table";
+import { FreezeControl } from "@/components/family/freeze-control";
 import { Money } from "@/components/money";
 import { useGuardian } from "@/lib/use-guardian";
 
 export default function FamilyHomePage() {
-  const { account, payments } = useGuardian();
+  const { account, frozen, connection, payments } = useGuardian();
   const pending = payments.filter((payment) => payment.status === "held");
   const spentToday = payments
     .filter((payment) => {
@@ -49,6 +50,10 @@ export default function FamilyHomePage() {
           </div>
         </dl>
       </header>
+
+      {connection === "live" ? (
+        <FreezeControl frozen={frozen} seniorName={account.seniorName} />
+      ) : null}
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Waiting for you</h2>

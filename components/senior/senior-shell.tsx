@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { ConnectionNotice } from "@/components/connection-notice";
 import { ContractNotice } from "@/components/contract-notice";
 
 export function SeniorShell({ children }: { children: ReactNode }) {
@@ -25,6 +26,9 @@ export function SeniorShell({ children }: { children: ReactNode }) {
             </Link>
           </nav>
         </header>
+        <div className="pt-6 empty:hidden">
+          <ConnectionNotice size="senior" />
+        </div>
         <main className="flex flex-1 flex-col py-8">{children}</main>
         <ContractNotice size="senior" />
       </div>

@@ -63,9 +63,16 @@ export function VoicePanel({ onPhase }: { onPhase: PhaseHandler }) {
     onPhase("checking", "The contract is deciding. The assistant cannot change the answer.");
     await later(1400);
     if (cancelled.current) return;
-    const payment = await submitVoicePayment(sample);
-    onPhase(payment.status, payment.reason);
-    setBusy(false);
+    try {
+      const decision = await submitVoicePayment(sample);
+      if (cancelled.current) return;
+      onPhase(decision.phase, decision.message);
+    } catch (caught) {
+      if (cancelled.current) return;
+      onPhase("idle", caught instanceof Error ? caught.message : "Something went wrong. Your money has not moved.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (agentId) {

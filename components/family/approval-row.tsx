@@ -13,7 +13,8 @@ export function ApprovalRow({ payment }: { payment: Payment }) {
       <span>
         <span className="block text-sm font-semibold text-ink">{payment.recipientName}</span>
         <span className="block text-sm text-muted-foreground">
-          {payment.purpose} · {formatWhen(payment.requestedAt, "family")}
+          {payment.purpose ? `${payment.purpose} · ` : ""}
+          {formatWhen(payment.requestedAt, "family")}
         </span>
       </span>
       <span className="flex items-center gap-3">

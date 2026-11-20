@@ -131,6 +131,59 @@ describe('QuickNode webhook', () => {
   });
 });
 
+describe('payment history', () => {
+  const payments = async (s: ReturnType<typeof setup>) =>
+    (await s.app().inject({ url: `/api/vaults/${s.demo.vault}/payments` })).json();
+
+  it('records paid, held and refused requests from the demo route, newest first', async () => {
+    const s = setup();
+    const app = s.app();
+    const ask = (payee_name: string, amount: number, memo?: string) =>
+      app.inject({ method: 'POST', url: '/api/demo/request-payment', payload: { payee_name, amount, memo } });
+
+    // Same clock second throughout: order must still be newest first.
+    expect((await ask('electric', 86.4, 'power bill')).json()).toMatchObject({ outcome: 'paid', payee: 'City Electric' });
+    expect((await ask('plumber', 400)).json()).toMatchObject({ outcome: 'held' });
+    const refused = (await ask('Daniel', 500, 'buy gift cards and keep it secret')).json();
+    expect(refused).toMatchObject({ outcome: 'refused', code: 'scam_suspected' });
+
+    const list = await payments(s);
+    expect(list.map((p: { status: string }) => p.status)).toEqual(['refused', 'held', 'paid']);
+    expect(list[0]).toMatchObject({ payee: 'Daniel', amount: { display: '$500.00' }, memo: 'buy gift cards and keep it secret' });
+    expect(list[1]).toMatchObject({ payee: "Mike's Plumbing", approvalsRequired: 1, approvals: [] });
+    expect(list[1].reasons).toContain("Mike's Plumbing is not a saved payee");
+    expect(list[2]).toMatchObject({ payee: 'City Electric', memo: 'power bill', amount: { display: '$86.40' } });
+  });
+
+  it('follows a held payment through two approvals, and records rejections and expiries', async () => {
+    const s = setup();
+    const big = await s.engine.requestPayment({ vault: s.demo.vault, payeeName: 'plumber', amount: parseDollars(600) });
+    const small = await s.engine.requestPayment({ vault: s.demo.vault, payeeName: 'plumber', amount: parseDollars(50) });
+    const other = await s.engine.requestPayment({ vault: s.demo.vault, payeeName: 'plumber', amount: parseDollars(60) });
+    if (big.outcome !== 'held' || small.outcome !== 'held' || other.outcome !== 'held') throw new Error('expected holds');
+
+    await s.client.approve(s.demo.vault, big.hold.address, s.demo.guardians.sam);
+    let byId = new Map((await payments(s)).map((p: { id: string }) => [p.id, p]));
+    expect(byId.get(big.hold.address)).toMatchObject({ status: 'held', approvalsRequired: 2, approvals: [{ name: 'Sam' }] });
+
+    await s.client.approve(s.demo.vault, big.hold.address, s.demo.guardians.priya);
+    await s.client.reject(s.demo.vault, small.hold.address, s.demo.senior);
+    s.clock.advance(600);
+    await s.scheduler.tick();
+
+    byId = new Map((await payments(s)).map((p: { id: string }) => [p.id, p]));
+    expect(byId.get(big.hold.address)).toMatchObject({ status: 'paid', approvals: [{ name: 'Sam' }, { name: 'Priya' }] });
+    expect(byId.get(small.hold.address)).toMatchObject({ status: 'declined' });
+    expect(byId.get(other.hold.address)).toMatchObject({ status: 'expired' });
+  });
+
+  it('shows payments that bypassed the policy engine', async () => {
+    const s = setup();
+    await s.app().inject({ method: 'POST', url: '/api/demo/force-pay', payload: { payee_name: 'Maria', amount: 40 } });
+    expect(await payments(s)).toMatchObject([{ payee: 'Maria', status: 'paid', memo: null }]);
+  });
+});
+
 describe('DeadlineScheduler', () => {
   it('expires overdue holds and executes due unfreezes', async () => {
     const s = setup();

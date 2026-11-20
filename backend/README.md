@@ -24,12 +24,12 @@ Maple Credit Union (professional), payees Maria, City Electric and Tyler.
 
 **Dashboard API** (`Authorization: Bearer $DASHBOARD_TOKEN`, or `?token=` for SSE):
 
-- `GET /api/vaults/:vault`, `/payees`, `/holds`, `/events`
+- `GET /api/vaults/:vault`, `/payees`, `/holds`, `/payments` (history with outcomes, refusals included), `/events`
 - `POST /api/vaults/:vault/holds/:hold/approve` `{ guardian }`, `/reject` `{ signer }`
 - `POST /api/vaults/:vault/freeze` `{ guardian }`, `/unfreeze` `{ guardian }`, `/request-unfreeze` `{ signer }`
-- `GET /api/events/stream`: server-sent events (`vault` = program events, `call` = live call updates)
+- `GET /api/events/stream`: server-sent events (`vault` = program events, `payment` = history changes, `call` = live call updates)
 - `POST /api/calls`, `/api/calls/:id/transcript` `{ text }`, `/api/calls/:id/end`: live call listening
-- Demo only (`DEMO_ROUTES=true`): `GET /api/demo` (demo keys), `POST /api/demo/force-pay`, `POST /api/demo/fund`
+- Demo only (`DEMO_ROUTES=true`): `GET /api/demo` (demo keys), `POST /api/demo/request-payment` `{ payee_name, amount, memo? }` (the policy engine path, for the dashboard's sample requests), `POST /api/demo/force-pay`, `POST /api/demo/fund`
 
 **QuickNode Streams:** `POST /webhooks/quicknode?token=$WEBHOOK_TOKEN`, body `{ events: VaultEvent[] }`.
 

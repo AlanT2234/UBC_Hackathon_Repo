@@ -3,6 +3,7 @@ import type { Hold, Payee, UnixSeconds, Units, VaultState } from '../domain/type
 import type { VaultEvent } from '../events/types.js';
 import { formatUsd } from '../money.js';
 import type { PayeeDirectory } from '../payees/directory.js';
+import type { PaymentRecord } from '../payments/log.js';
 import type { PaymentDecision } from '../policy/engine.js';
 import { MOCK_SIGNATURE_PREFIX } from '../vault/mock.js';
 
@@ -65,6 +66,26 @@ export function payeeView(p: Payee, now: UnixSeconds, directory: PayeeDirectory)
     name: directory.label(p.recipient) ?? null,
     activeAt: p.activeAt,
     active: isPayeeActive(p, now),
+  };
+}
+
+export function paymentView(p: PaymentRecord, now: UnixSeconds, directory: PayeeDirectory, cluster: string) {
+  return {
+    id: p.id,
+    payee: p.payee,
+    recipient: p.recipient,
+    amount: usd(p.amount),
+    memo: p.memo,
+    status: p.status,
+    reasons: p.reasons,
+    requestedAt: p.requestedAt,
+    decidedAt: p.decidedAt,
+    hold: p.hold,
+    expiresAt: p.expiresAt,
+    expiresInSeconds: p.status === 'held' && p.expiresAt !== null ? Math.max(0, p.expiresAt - now) : null,
+    approvalsRequired: p.approvalsRequired,
+    approvals: p.approvals.map((key) => ({ key, name: directory.label(key) ?? null })),
+    explorerUrl: p.signature ? explorerTxUrl(p.signature, cluster) : null,
   };
 }
 
