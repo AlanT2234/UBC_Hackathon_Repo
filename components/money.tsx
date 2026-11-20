@@ -9,6 +9,7 @@ export function Money({
   className?: string;
 }) {
   return (
-    <span className={cn("tabular-nums", className)}>{formatDollars(cents)}</span>
+    // Archivo, not the body font: Atkinson Hyperlegible slashes its zeros, which makes "$500.00" harder to read.
+    <span className={cn("font-display tabular-nums", className)}>{formatDollars(cents)}</span>
   );
 }

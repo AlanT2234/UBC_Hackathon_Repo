@@ -28,7 +28,7 @@ export class AlertService {
 
   async paymentRefused(vault: Pubkey, payee: string, amount: Units, reasons: string[], froze: boolean): Promise<void> {
     const lines = [
-      `🛑 SafeSpend refused a payment: ${this.owner(vault)} asked to send ${payee} ${formatUsd(amount)}.`,
+      `🛑 SafeNSound refused a payment: ${this.owner(vault)} asked to send ${payee} ${formatUsd(amount)}.`,
       ...reasons.map((r) => `• ${r}`),
       froze ? `Payments are now frozen. Please call ${this.owner(vault)}.` : `Please give ${this.owner(vault)} a call.`,
       this.link(vault),

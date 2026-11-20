@@ -36,7 +36,7 @@ export function ApprovalDecision({ payment: current }: { payment: Payment }) {
       </Link>
       <div className="space-y-2">
         <StatusMark status={current.status} />
-        <p className="font-serif text-4xl font-medium tracking-tight">
+        <p className="font-display text-4xl font-extrabold tracking-tight">
           <Money cents={current.amountCents} />
         </p>
         <h1 className="text-lg font-semibold">{current.recipientName}</h1>

@@ -16,7 +16,7 @@ export function ConnectionNotice({ size = "family" }: { size?: "senior" | "famil
         size === "senior" ? "px-5 py-4 text-xl leading-snug" : "px-3 py-2 text-sm leading-snug",
       )}
     >
-      SafeSpend is not connected right now. Nothing here is up to date, and no payments can be made.
+      SafeNSound is not connected right now. Nothing here is up to date, and no payments can be made.
     </p>
   );
 }

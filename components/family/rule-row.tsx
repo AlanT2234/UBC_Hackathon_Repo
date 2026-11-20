@@ -49,7 +49,7 @@ export function RuleRow({ rule }: { rule: Rule }) {
             </span>
           ) : null}
         </div>
-        <p className="mt-1 text-sm text-ink">{rule.summary}</p>
+        <p className="mt-1 font-display text-base font-bold text-ink">{rule.summary}</p>
         <p className="mt-1 text-sm text-muted-foreground">{rule.detail}</p>
         {saved ? (
           <p className="mt-2 text-sm text-safe">Saved. The contract enforces this limit now.</p>

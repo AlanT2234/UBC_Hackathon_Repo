@@ -27,7 +27,7 @@ else log.warn('scam scorer: keyword rules only (set ANTHROPIC_API_KEY to add the
 
 services.scheduler.start(config.schedulerIntervalMs);
 await app.listen({ port: config.port, host: config.host });
-log.info({ vault: services.defaultVault }, 'SafeSpend backend ready (mock vault client)');
+log.info({ vault: services.defaultVault }, 'SafeNSound backend ready (mock vault client)');
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {

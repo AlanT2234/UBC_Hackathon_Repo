@@ -118,12 +118,16 @@ export async function apiRoutes(app: FastifyInstance, s: Services): Promise<void
   app.get('/events/stream', (req, reply) => {
     reply.hijack();
     const res = reply.raw;
+    // Proxies (Cloudflare tunnels, nginx) buffer or compress streams unless told not to; the
+    // padding comment pushes the first bytes past any remaining buffer so `ready` arrives at once.
     res.writeHead(200, {
       'content-type': 'text/event-stream',
-      'cache-control': 'no-cache',
+      'cache-control': 'no-cache, no-transform',
+      'x-accel-buffering': 'no',
       connection: 'keep-alive',
       ...corsHeaders(req.headers.origin, s.config.corsOrigins),
     });
+    res.write(`: ${' '.repeat(2048)}\n\n`);
     const send = (event: string, data: unknown): void => {
       res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };

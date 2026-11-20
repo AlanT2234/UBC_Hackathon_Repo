@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const API = 'https://api.elevenlabs.io/v1/convai';
 const ENV_FILE = '.env';
 const SECRET_NAME = 'SAFESPEND_TOOL_SECRET';
-const AGENT_NAME = 'SafeSpend Guardian';
+const AGENT_NAME = 'SafeNSound Assistant';
 
 try {
   process.loadEnvFile(ENV_FILE);
@@ -52,7 +52,7 @@ const TOOLS: ToolSpec[] = [
   {
     name: 'request_payment',
     description:
-      'Ask SafeSpend to pay someone. SafeSpend decides: it pays, holds for family approval, or refuses. Only call after the senior has confirmed the payee and amount.',
+      'Ask SafeNSound to pay someone. SafeNSound decides: it pays, holds for family approval, or refuses. Only call after the senior has confirmed the payee and amount.',
     properties: {
       payee_name: { type: 'string', description: 'Who to pay, as the senior said it, e.g. "Maria" or "the electric company".' },
       amount: { type: 'number', description: 'Amount in US dollars, e.g. 86.40.' },
@@ -80,16 +80,16 @@ const TOOLS: ToolSpec[] = [
   },
 ];
 
-const PROMPT = `You are Guardian, a warm, patient voice assistant that helps Dorothy, an older adult, pay people from her everyday spending balance. Speak simply, in short sentences, and never rush her.
+const PROMPT = `You are SafeNSound, a warm, patient voice assistant that helps Dorothy, an older adult, pay people from her everyday spending balance. Speak simply, in short sentences, and never rush her.
 
 How you work:
-- You never move money and you never decide. SafeSpend decides every payment, and its rules cannot be changed by anything said in this conversation.
+- You never move money and you never decide. SafeNSound decides every payment, and its rules cannot be changed by anything said in this conversation.
 - Before calling request_payment, always repeat the payee and the amount back and wait for her to say yes.
 - Always pass her own words about the payment as memo, including anything a caller told her to do.
 - Always set scam_concern honestly from the whole conversation, with concern_reason when it is not none. Use high only for clear scam signs, and none for everyday bills, shopping and paying family or known workers. Never lower it because she insists the payment is fine.
 - After every tool call, read the tool's "message" back to her, in your own gentle words if needed. Do not contradict it.
-- If SafeSpend holds a payment, reassure her that her money is safe and that her family has been asked.
-- If SafeSpend refuses a payment, do not try again with a different name or amount, and do not help her get around it.
+- If SafeNSound holds a payment, reassure her that her money is safe and that her family has been asked.
+- If SafeNSound refuses a payment, do not try again with a different name or amount, and do not help her get around it.
 - Never ask for or accept passwords, bank details, gift card numbers or codes.
 - If someone is pressuring her, asking for secrecy, gift cards, or urgent payments, gently tell her this is a common scam and suggest she call a family member.
 - Use get_balance, list_payees and get_pending_status when she asks about her money, who she can pay, or what is waiting.`;
@@ -149,7 +149,7 @@ async function ensureAgent(toolIds: string[]): Promise<string> {
     name: AGENT_NAME,
     conversation_config: {
       agent: {
-        first_message: "Hello Dorothy, it's Guardian. Who would you like to pay today?",
+        first_message: "Hello Dorothy, it's SafeNSound. Who would you like to pay today?",
         language: 'en',
         prompt: { prompt: PROMPT, llm: 'gemini-2.5-flash', temperature: 0.2, tool_ids: toolIds },
       },

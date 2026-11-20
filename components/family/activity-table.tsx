@@ -1,6 +1,7 @@
 import { Money } from "@/components/money";
 import { StatusMark } from "@/components/status-mark";
 import { formatWhen } from "@/lib/format";
+import { OUTCOME_LABEL } from "@/lib/history";
 import type { Payment } from "@/lib/types";
 
 export function ActivityTable({ payments }: { payments: Payment[] }) {
@@ -19,7 +20,7 @@ export function ActivityTable({ payments }: { payments: Payment[] }) {
             </div>
             <p className="mt-1 text-sm text-muted-foreground">{payment.purpose}</p>
             <div className="mt-2 flex items-center justify-between gap-3">
-              <StatusMark status={payment.status} />
+              <StatusMark status={payment.status} label={OUTCOME_LABEL[payment.outcome]} />
               <span className="text-xs text-muted-foreground">
                 {formatWhen(payment.requestedAt, "family")}
               </span>
@@ -47,7 +48,7 @@ export function ActivityTable({ payments }: { payments: Payment[] }) {
                 <td className="px-4 py-3">{payment.recipientName}</td>
                 <td className="px-4 py-3 text-muted-foreground">{payment.purpose}</td>
                 <td className="px-4 py-3">
-                  <StatusMark status={payment.status} />
+                  <StatusMark status={payment.status} label={OUTCOME_LABEL[payment.outcome]} />
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {formatWhen(payment.requestedAt, "family")}

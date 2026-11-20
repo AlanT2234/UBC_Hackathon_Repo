@@ -2,26 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Warm paper and forest ink. No purple, no gradients. */
+/* SafeNSound: cream page, midnight ink, navy actions, teal pulse. */
 :root {
-  --background: 40 33% 94%;
-  --foreground: 33 12% 10%;
-  --card: 40 60% 99%;
-  --card-foreground: 33 12% 10%;
-  --primary: 153 43% 18%;
-  --primary-foreground: 40 33% 96%;
-  --secondary: 36 28% 91%;
-  --secondary-foreground: 33 12% 10%;
-  --muted: 36 24% 90%;
-  --muted-foreground: 30 10% 24%;
-  --accent: 36 28% 91%;
-  --accent-foreground: 33 12% 10%;
+  --background: 36 100% 96%;
+  --foreground: 215 52% 16%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 52% 16%;
+  --primary: 214 51% 25%;
+  --primary-foreground: 36 100% 96%;
+  --secondary: 35 56% 91%;
+  --secondary-foreground: 215 52% 16%;
+  --muted: 35 56% 91%;
+  --muted-foreground: 214 22% 34%;
+  --accent: 172 57% 60%;
+  --accent-foreground: 215 52% 16%;
   --destructive: 0 74% 32%;
-  --destructive-foreground: 40 60% 98%;
-  --border: 34 28% 80%;
-  --input: 34 28% 80%;
-  --ring: 153 43% 18%;
-  --radius: 0.75rem;
+  --destructive-foreground: 36 100% 96%;
+  --border: 33 38% 84%;
+  --input: 33 38% 80%;
+  --ring: 214 51% 25%;
+  --radius: 0.875rem;
 }
 
 @layer base {
@@ -38,13 +38,36 @@
   }
 
   :focus-visible {
-    outline: 3px solid #1b4332;
+    outline: 3px solid #1f3a5f;
     outline-offset: 3px;
   }
+
+  /* On dark surfaces the navy ring disappears; use the brand teal there. */
+  .surface-dark :focus-visible {
+    outline-color: #5fd3c4;
+  }
+}
+
+@keyframes pulse-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.pulse-live path {
+  stroke-dasharray: 1;
+  animation: pulse-draw 1.6s ease-in-out infinite alternate;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .pulse-live path {
+    animation: none;
   }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useConversation } from "@elevenlabs/react";
+import { Mic, MicOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGuardian } from "@/lib/use-guardian";
 import type { AgentPhase } from "@/lib/types";
@@ -18,7 +19,7 @@ export function VoiceLive({
   const outcome = useRef<AgentPhase>("listening");
   const conversation = useConversation({
     onConnect: () => {
-      onPhase("listening", "Speak in a normal voice. Guardian is listening.");
+      onPhase("listening", "Speak in a normal voice. SafeNSound is listening.");
     },
     onDisconnect: () => {
       onPhase("idle", "Tap the button and say who you want to pay.");
@@ -69,13 +70,19 @@ export function VoiceLive({
 
   return (
     <div className="space-y-4">
-      <Button type="button" size="senior" onClick={connected ? () => void stop() : () => void start()}>
-        {connected ? "Stop talking" : "Talk to Guardian"}
+      <Button
+        type="button"
+        size="senior"
+        variant={connected ? "default" : "accent"}
+        onClick={connected ? () => void stop() : () => void start()}
+      >
+        {connected ? <MicOff className="h-7 w-7" aria-hidden="true" /> : <Mic className="h-7 w-7" aria-hidden="true" />}
+        {connected ? "Stop talking" : "Talk to SafeNSound"}
       </Button>
       {error ? <p className="text-xl leading-relaxed text-blocked">{error}</p> : null}
       <p className="text-xl leading-relaxed text-ink">
         {connected && conversation.isSpeaking
-          ? "Guardian is speaking."
+          ? "SafeNSound is speaking."
           : "Any payment still has to pass the contract."}
       </p>
     </div>

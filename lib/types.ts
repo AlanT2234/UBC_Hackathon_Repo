@@ -1,5 +1,8 @@
 export type PaymentStatus = "paid" | "held" | "blocked";
 
+/** The exact end state, for the itemized history. `status` folds the last three into "blocked". */
+export type PaymentOutcome = "paid" | "held" | "refused" | "declined" | "expired";
+
 export type Payment = {
   id: string;
   amountCents: number;
@@ -9,8 +12,13 @@ export type Payment = {
   reason: string;
   requestedAt: string;
   decidedAt: string | null;
+  outcome: PaymentOutcome;
   /** Guardian keys that have approved a held payment. */
   approvals: string[];
+  /** Names for `approvals`, in approval order. */
+  approvedBy: string[];
+  /** Seconds left to approve a held payment. */
+  expiresInSeconds: number | null;
   approvalsRequired: number;
   explorerUrl: string | null;
 };

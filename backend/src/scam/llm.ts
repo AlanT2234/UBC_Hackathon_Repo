@@ -27,7 +27,7 @@ const Verdict = z.object({
   reasons: z.array(z.string()),
 });
 
-const SYSTEM = `You screen speech-to-text transcripts for SafeSpend, which protects older adults from payment scams.
+const SYSTEM = `You screen speech-to-text transcripts for SafeNSound, which protects older adults from payment scams.
 
 Each request gives a source and a transcript:
 - "call": part of a phone call between the senior and a caller from an unknown number.

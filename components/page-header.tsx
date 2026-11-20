@@ -14,7 +14,7 @@ export function PageHeader({
     <header className={cn(senior ? "space-y-3" : "space-y-1")}>
       <h1
         className={cn(
-          "font-serif font-medium text-ink",
+          "font-display font-extrabold text-ink",
           senior ? "text-4xl leading-tight sm:text-5xl" : "text-2xl",
         )}
       >

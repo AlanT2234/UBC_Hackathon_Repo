@@ -1,7 +1,7 @@
 import type { Account, AgentPhase, Payment, Rule, VoiceRequest } from "@/lib/types";
 
 /**
- * Client for the SafeSpend backend. The assistant and the screens call only these functions.
+ * Client for the SafeNSound backend. The assistant and the screens call only these functions.
  * Nothing here decides anything: the backend's policy engine routes each request and the
  * Solana program enforces the limits. Screens read a snapshot that refreshes over SSE.
  */
@@ -87,7 +87,7 @@ async function request<T>(path: string, init?: { method?: string; body?: unknown
       body: init?.body === undefined ? undefined : JSON.stringify(init.body),
     });
   } catch {
-    throw new ApiError("SafeSpend could not be reached. Check that the backend is running.", null);
+    throw new ApiError("SafeNSound could not be reached. Check that the backend is running.", null);
   }
   const data = (await res.json().catch(() => null)) as
     | (T & { error?: string; message?: string })
@@ -111,7 +111,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 function errorMessage(code: string | null, message?: string): string {
   if (code && ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
-  return message ?? "SafeSpend did not answer. Try again.";
+  return message ?? "SafeNSound did not answer. Try again.";
 }
 
 function cents(usd: Usd): number {
@@ -159,18 +159,26 @@ function toPayment(p: PaymentView): Payment {
     recipientName: p.payee,
     purpose: p.memo ?? "",
     status: p.status === "paid" ? "paid" : p.status === "held" ? "held" : "blocked",
+    outcome: p.status,
     reason: reasonFor(p),
     requestedAt: iso(p.requestedAt),
     decidedAt: p.decidedAt === null ? null : iso(p.decidedAt),
     approvals: p.approvals.map((a) => a.key),
+    approvedBy: p.approvals.map((a) => a.name ?? "A guardian"),
+    expiresInSeconds: p.expiresInSeconds,
     approvalsRequired: p.approvalsRequired,
     explorerUrl: p.explorerUrl,
   };
 }
 
 function toRules(v: VaultView): Rule[] {
-  const hours = Math.round(v.holdSeconds / 3600);
-  const window = hours >= 1 ? `${hours} hour${hours === 1 ? "" : "s"}` : `${Math.round(v.holdSeconds / 60)} minutes`;
+  // Under an hour reads in minutes ("30 minutes"); rounding 0.5 h up to "1 hour" overstated it.
+  const minutes = Math.round(v.holdSeconds / 60);
+  const hours = v.holdSeconds / 3600;
+  const window =
+    minutes < 60
+      ? `${minutes} minute${minutes === 1 ? "" : "s"}`
+      : `${Number.isInteger(hours) ? hours : hours.toFixed(1)} hour${hours === 1 ? "" : "s"}`;
   return [
     {
       id: "single",
@@ -217,7 +225,7 @@ function toRules(v: VaultView): Rule[] {
       title: "Scam warning signs",
       summary: "Always refused",
       detail:
-        "Gift cards, secrecy and pressure are common scam signs. SafeSpend refuses the payment and pauses the account.",
+        "Gift cards, secrecy and pressure are common scam signs. SafeNSound refuses the payment and pauses the account.",
       locked: true,
       limitCents: null,
     },
@@ -229,7 +237,8 @@ function toRules(v: VaultView): Rule[] {
 
 let snapshot: Snapshot = {
   connection: "connecting",
-  account: { seniorName: "there", balanceCents: 0, pendingCount: 0 },
+  // Empty until the first load; screens fall back to neutral wording rather than a placeholder name.
+  account: { seniorName: "", balanceCents: 0, pendingCount: 0 },
   payments: [],
   rules: [],
   frozen: false,
@@ -239,6 +248,12 @@ let snapshot: Snapshot = {
 let ids: DemoIds | null = null;
 const listeners = new Set<() => void>();
 let source: EventSource | null = null;
+let poll: number | null = null;
+let lastEventAt = 0;
+
+/** Some proxies (Cloudflare quick tunnels) hold SSE back; poll whenever the stream has gone quiet. */
+const POLL_MS = 4000;
+const QUIET_MS = 10_000;
 let refreshing: Promise<void> | null = null;
 let again = false;
 
@@ -297,9 +312,16 @@ function connect() {
   if (source || typeof window === "undefined") return;
   const query = TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : "";
   source = new EventSource(`${API_URL}/api/events/stream${query}`);
-  source.addEventListener("ready", () => void refresh());
-  source.addEventListener("vault", () => void refresh());
-  source.addEventListener("payment", () => void refresh());
+  const onEvent = () => {
+    lastEventAt = Date.now();
+    void refresh();
+  };
+  source.addEventListener("ready", onEvent);
+  source.addEventListener("vault", onEvent);
+  source.addEventListener("payment", onEvent);
+  poll = window.setInterval(() => {
+    if (document.visibilityState === "visible" && Date.now() - lastEventAt > QUIET_MS) void refresh();
+  }, POLL_MS);
   source.onerror = () => {
     // EventSource reconnects by itself; show offline until the next successful load.
     if (source?.readyState !== EventSource.OPEN) commit({ connection: "offline" });
@@ -309,6 +331,8 @@ function connect() {
 function disconnect() {
   source?.close();
   source = null;
+  if (poll !== null) window.clearInterval(poll);
+  poll = null;
 }
 
 export function subscribe(listener: () => void): () => void {
@@ -336,14 +360,14 @@ function findPayment(id: string): Payment {
   return found;
 }
 
-/** Demo: the family view acts as whichever family guardian has not approved yet. */
+/** Demo: the guardian view acts as whichever family guardian has not approved yet. */
 export function approverFor(payment: Payment): Guardian | null {
   return snapshot.guardians.find((g) => !payment.approvals.includes(g.key)) ?? null;
 }
 
 function actingGuardian(): Guardian {
   const guardian = snapshot.guardians[0];
-  if (!guardian) throw new ApiError("SafeSpend is still loading. Try again.", null);
+  if (!guardian) throw new ApiError("SafeNSound is still loading. Try again.", null);
   return guardian;
 }
 

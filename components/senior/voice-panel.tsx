@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
+import { Mic, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SAMPLE_REQUESTS, submitVoicePayment } from "@/lib/api";
 import type { AgentPhase } from "@/lib/types";
@@ -88,8 +89,14 @@ export function VoicePanel({ onPhase }: { onPhase: PhaseHandler }) {
 
   return (
     <div className="space-y-4">
-      <Button type="button" size="senior" onClick={busy ? stopSample : () => void runSample()}>
-        {busy ? "Stop" : "Talk to Guardian"}
+      <Button
+        type="button"
+        size="senior"
+        variant={busy ? "default" : "accent"}
+        onClick={busy ? stopSample : () => void runSample()}
+      >
+        {busy ? <Square className="h-6 w-6" aria-hidden="true" /> : <Mic className="h-7 w-7" aria-hidden="true" />}
+        {busy ? "Stop" : "Talk to SafeNSound"}
       </Button>
       <p className="text-xl leading-relaxed text-ink">
         Sample requests stand in for the microphone. Each one is still decided by the contract.

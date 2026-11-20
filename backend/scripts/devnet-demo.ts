@@ -49,7 +49,7 @@ console.error = (...args: unknown[]) => {
   consoleError(...args);
 };
 
-/** Plain-language gloss for errors that come from Anchor itself rather than SafeSpend's rules. */
+/** Plain-language gloss for errors that come from Anchor itself rather than SafeNSound's rules. */
 const ERROR_GLOSS: Record<string, string> = {
   AccountNotInitialized: "her payee list has no entry for this account, so the program won't pay it",
 };

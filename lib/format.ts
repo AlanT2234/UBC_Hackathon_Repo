@@ -59,5 +59,6 @@ export function formatWhen(iso: string, tone: "senior" | "family"): string {
 export function greeting(name: string): string {
   const hour = new Date().getHours();
   const hello = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  return `${hello}, ${name.split(" ")[0]}.`;
+  const first = name.trim().split(" ")[0];
+  return first ? `${hello}, ${first}.` : `${hello}.`;
 }

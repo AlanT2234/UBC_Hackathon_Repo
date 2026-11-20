@@ -11,7 +11,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["var(--font-sans)", "sans-serif"],
-        serif: ["var(--font-serif)", "Georgia", "serif"],
+        display: ["var(--font-display)", "var(--font-sans)", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -19,8 +19,18 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        paper: "#F6F1E8",
-        ink: "#1C1915",
+        // SafeNSound brand (SafeNSound-logos/final)
+        paper: "#FFF7EC",
+        ink: "#14263F",
+        midnight: "#14263F",
+        navy: "#1F3A5F",
+        cream: "#FFF7EC",
+        teal: {
+          DEFAULT: "#5FD3C4",
+          // Teal dark enough for text and icons on cream (5.6:1).
+          deep: "#0B6E64",
+          soft: "#E2F6F2",
+        },
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
@@ -46,8 +56,8 @@ const config: Config = {
           foreground: "hsl(var(--destructive-foreground))",
         },
         safe: {
-          DEFAULT: "#0E6B3C",
-          soft: "#E4F3EA",
+          DEFAULT: "#0B6E64",
+          soft: "#E2F6F2",
         },
         held: {
           DEFAULT: "#6F4700",

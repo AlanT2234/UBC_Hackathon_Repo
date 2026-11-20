@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ApprovalRow } from "@/components/family/approval-row";
 import { ActivityTable } from "@/components/family/activity-table";
 import { FreezeControl } from "@/components/family/freeze-control";
@@ -25,29 +26,29 @@ export default function FamilyHomePage() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+      <header className="space-y-4">
         <div>
-          <h1 className="font-serif text-2xl font-medium">Overview</h1>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight">Overview</h1>
           <p className="text-sm text-muted-foreground">
-            Payments for {account.seniorName} that need a person, not the assistant.
+            Payments for {account.seniorName || "your family member"} that need a person, not the assistant.
           </p>
         </div>
-        <dl className="flex gap-6 text-sm">
-          <div>
-            <dt className="text-muted-foreground">Available</dt>
-            <dd className="font-semibold">
+        <dl className="grid gap-3 sm:grid-cols-3">
+          <div className="surface-dark rounded-lg bg-navy px-4 py-3 text-cream">
+            <dt className="text-xs font-bold uppercase tracking-wide text-cream/75">Available</dt>
+            <dd className="font-display text-2xl font-extrabold tracking-tight">
               <Money cents={account.balanceCents} />
             </dd>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Paid today</dt>
-            <dd className="font-semibold">
+          <div className="rounded-lg border border-t-4 border-t-teal bg-card px-4 py-3">
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Paid today</dt>
+            <dd className="font-display text-2xl font-extrabold tracking-tight">
               <Money cents={spentToday} />
             </dd>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Waiting</dt>
-            <dd className="font-semibold">{account.pendingCount}</dd>
+          <div className="rounded-lg border border-t-4 border-t-held bg-card px-4 py-3">
+            <dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Waiting for you</dt>
+            <dd className="font-display text-2xl font-extrabold tracking-tight">{account.pendingCount}</dd>
           </div>
         </dl>
       </header>
@@ -74,8 +75,13 @@ export default function FamilyHomePage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Activity</h2>
-        <ActivityTable payments={payments} />
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-bold">Recent activity</h2>
+          <Link href="/family/history" className="text-sm font-bold text-navy underline underline-offset-2">
+            Full payment history
+          </Link>
+        </div>
+        <ActivityTable payments={payments.slice(0, 5)} />
       </section>
     </div>
   );

@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Money } from "@/components/money";
+import { Mic } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { StatusMark } from "@/components/status-mark";
+import { PaymentHistory } from "@/components/payment-history";
 import { Button } from "@/components/ui/button";
-import { formatWhen } from "@/lib/format";
 import { useGuardian } from "@/lib/use-guardian";
 
 export default function ActivityPage() {
@@ -15,27 +14,15 @@ export default function ActivityPage() {
     <div className="flex flex-1 flex-col gap-6">
       <PageHeader
         size="senior"
-        title="Recent payments"
-        description="What the contract did with each request."
+        title="My payments"
+        description="Every payment you asked for, and what happened to it."
       />
-      <ul className="space-y-4">
-        {payments.map((payment) => (
-          <li key={payment.id} className="rounded-lg border border-border bg-card px-5 py-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="font-serif text-3xl font-medium">{payment.recipientName}</p>
-              <StatusMark status={payment.status} size="senior" />
-            </div>
-            <p className="mt-3 font-serif text-4xl font-medium">
-              <Money cents={payment.amountCents} />
-            </p>
-            <p className="mt-2 text-xl leading-relaxed">{payment.purpose}</p>
-            <p className="mt-2 text-xl leading-relaxed">{payment.reason}</p>
-            <p className="mt-3 text-xl">{formatWhen(payment.requestedAt, "senior")}</p>
-          </li>
-        ))}
-      </ul>
-      <Button asChild size="senior" className="mt-2">
-        <Link href="/">Talk to Guardian</Link>
+      <PaymentHistory payments={payments} size="senior" />
+      <Button asChild size="senior" variant="accent" className="mt-2">
+        <Link href="/">
+          <Mic className="h-7 w-7" aria-hidden="true" />
+          Talk to SafeNSound
+        </Link>
       </Button>
     </div>
   );

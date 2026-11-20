@@ -12,24 +12,26 @@ const styles: Record<PaymentStatus, string> = {
 export function StatusMark({
   status,
   size = "family",
+  label,
 }: {
   status: PaymentStatus;
   size?: "senior" | "family";
+  /** Overrides the default label, e.g. "Declined by family" in the itemized history. */
+  label?: string;
 }) {
-  const label = statusLabel(status);
   const iconClass = size === "senior" ? "h-7 w-7" : "h-4 w-4";
   const Icon = status === "paid" ? Check : status === "held" ? Clock : Ban;
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-md font-bold",
+        "inline-flex items-center gap-2 whitespace-nowrap rounded-full font-bold",
         styles[status],
-        size === "senior" ? "px-4 py-2 text-xl" : "px-2 py-1 text-xs",
+        size === "senior" ? "px-4 py-2 text-xl" : "px-2.5 py-1 text-xs",
       )}
     >
-      <Icon className={iconClass} aria-hidden="true" strokeWidth={2.25} />
-      {label}
+      <Icon className={iconClass} aria-hidden="true" strokeWidth={2.5} />
+      {label ?? statusLabel(status)}
     </span>
   );
 }
