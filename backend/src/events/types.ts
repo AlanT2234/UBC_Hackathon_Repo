@@ -1,6 +1,6 @@
 import type { Pubkey, UnixSeconds } from '../domain/types.js';
 
-/** Event names emitted by `safespend_vault` (and decoded by the QuickNode Stream filter). */
+/** Event names emitted by `safespend_vault`. */
 export const VAULT_EVENT_KINDS = [
   'VaultFunded',
   'PayeeProposed',

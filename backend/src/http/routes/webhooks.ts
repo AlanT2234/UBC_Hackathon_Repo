@@ -17,8 +17,9 @@ const VaultEventSchema = z.object({
 const Payload = z.union([z.object({ events: z.array(VaultEventSchema) }), z.array(VaultEventSchema)]);
 
 /**
- * QuickNode Streams destination. The stream filter keeps only `safespend_vault` transactions and
- * decodes their Anchor events; this route fans them out (alerts, dashboard, deadline scheduler).
+ * Optional chain-event webhook, built as a destination for a chain indexer (such as a QuickNode
+ * Stream) that keeps `safespend_vault` transactions and decodes their Anchor events. Nothing is
+ * connected in the demo; events come from the vault client. Fans out to alerts, dashboard and scheduler.
  */
 export async function webhookRoutes(app: FastifyInstance, s: Services): Promise<void> {
   app.addHook('preHandler', requireToken(s.config.webhookToken, 'x-safespend-webhook-token'));

@@ -29,7 +29,7 @@ not touch the agent's voice, so a voice picked in the UI stays.
 | `ELEVENLABS_AGENT_ID` | Written by the setup script; re-runs update this agent instead of creating a new one |
 | `TOOL_SECRET` | Shared secret on every tool call |
 | `DASHBOARD_TOKEN` | Bearer token for the dashboard API |
-| `WEBHOOK_TOKEN` | QuickNode webhook token |
+| `WEBHOOK_TOKEN` | Token for the optional chain-event webhook (`/webhooks/quicknode`); unused in the demo |
 
 Dashboard `.env.local` (gitignored):
 

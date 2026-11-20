@@ -5,7 +5,7 @@ type Listener = (e: VaultEvent) => void | Promise<void>;
 
 /**
  * Single fan-out point for vault events, whether they come from the mock client or from the
- * QuickNode webhook. Dedupes redeliveries and keeps a bounded history for the dashboard.
+ * optional chain-event webhook. Dedupes redeliveries and keeps a bounded history for the dashboard.
  */
 export class EventBus {
   private readonly listeners = new Set<Listener>();
@@ -17,7 +17,7 @@ export class EventBus {
     private readonly capacity = 1000,
   ) {}
 
-  /** Returns false if this event was already published (QuickNode may redeliver). */
+  /** Returns false if this event was already published (an indexer webhook may redeliver). */
   publish(e: VaultEvent): boolean {
     const id = `${e.signature}:${e.kind}:${e.data.hold ?? ''}`;
     if (this.seen.has(id)) return false;

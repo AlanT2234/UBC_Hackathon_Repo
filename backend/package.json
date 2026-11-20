@@ -2,7 +2,7 @@
   "name": "@safespend/backend",
   "version": "0.1.0",
   "private": true,
-  "description": "SafeSpend backend: policy engine, ElevenLabs tool endpoints, guardian API, QuickNode webhook, scam scorer",
+  "description": "SafeNSound backend: policy engine, ElevenLabs tool endpoints, guardian API, scam scorer",
   "type": "module",
   "engines": {
     "node": ">=22"

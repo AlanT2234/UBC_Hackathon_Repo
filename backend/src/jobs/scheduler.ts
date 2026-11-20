@@ -7,8 +7,8 @@ import { isVaultError } from '../vault/errors.js';
 
 /**
  * Calls the permissionless instructions when their time comes: `expire` on overdue holds and
- * `execute_unfreeze` once a senior's waiting period ends. Driven by vault events (QuickNode
- * stream in production), so it needs no polling of chain state.
+ * `execute_unfreeze` once a senior's waiting period ends. Driven by vault events (from a chain
+ * indexer in production), so it needs no polling of chain state.
  */
 export class DeadlineScheduler {
   private readonly holds = new Map<Pubkey, { vault: Pubkey; due: UnixSeconds }>();

@@ -140,7 +140,7 @@ describe('dashboard API', () => {
   });
 });
 
-describe('QuickNode webhook', () => {
+describe('chain-event webhook', () => {
   it('requires the token, publishes events and dedupes redeliveries', async () => {
     const s = setup({ WEBHOOK_TOKEN: 'qn' });
     const app = s.app();

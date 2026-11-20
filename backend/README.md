@@ -1,7 +1,7 @@
-# SafeSpend backend
+# SafeNSound backend
 
 TypeScript (Node 24 + Fastify) backend: policy engine, ElevenLabs server tools, guardian API,
-QuickNode webhook, scam-call scorer, guardian alerts and the hold-expiry scheduler.
+scam-call scorer, guardian alerts and the hold-expiry scheduler.
 
 ```bash
 cd backend
@@ -31,7 +31,7 @@ Maple Credit Union (professional), payees Maria, City Electric and Tyler.
 - `POST /api/calls`, `/api/calls/:id/transcript` `{ text }`, `/api/calls/:id/end`: live call listening
 - Demo only (`DEMO_ROUTES=true`): `GET /api/demo` (demo keys), `POST /api/demo/request-payment` `{ payee_name, amount, memo? }` (the policy engine path, for the dashboard's sample requests), `POST /api/demo/force-pay`, `POST /api/demo/fund`
 
-**QuickNode Streams:** `POST /webhooks/quicknode?token=$WEBHOOK_TOKEN`, body `{ events: VaultEvent[] }`.
+**Chain-event webhook (not connected):** `POST /webhooks/quicknode?token=$WEBHOOK_TOKEN`, body `{ events: VaultEvent[] }`. Built for a QuickNode Stream that was never set up; nothing in the demo depends on it.
 
 With no `.env`, all tokens are unset and every endpoint is open: fine locally, but set `TOOL_SECRET`,
 `DASHBOARD_TOKEN` and `WEBHOOK_TOKEN` before exposing it publicly.
