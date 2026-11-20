@@ -4,6 +4,7 @@ import type { Pubkey, UnixSeconds } from '../domain/types.js';
 export const VAULT_EVENT_KINDS = [
   'VaultFunded',
   'PayeeProposed',
+  'PayeeRemoved',
   'PaymentSent',
   'HoldCreated',
   'HoldApproved',

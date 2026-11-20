@@ -64,6 +64,7 @@ export function payeeView(p: Payee, now: UnixSeconds, directory: PayeeDirectory)
   return {
     recipient: p.recipient,
     name: directory.label(p.recipient) ?? null,
+    aliases: directory.get(p.recipient)?.aliases ?? [],
     activeAt: p.activeAt,
     active: isPayeeActive(p, now),
   };

@@ -86,6 +86,8 @@ export class AlertService {
           : `🔓 ${this.name(String(d.by))} unfroze ${owner}'s payments.`;
       case 'PayeeProposed':
         return `➕ ${this.name(String(d.proposedBy))} added ${payee} as a payee. Usable from ${this.time(Number(d.activeAt))}.`;
+      case 'PayeeRemoved':
+        return `➖ ${this.name(String(d.removedBy))} removed ${payee} as a payee. Payments to them now need approval.`;
       case 'PaymentSent':
       case 'VaultFunded':
         return null; // everyday activity: shown on the dashboard, not pushed

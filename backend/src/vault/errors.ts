@@ -8,6 +8,7 @@ export const VAULT_ERROR_MESSAGES = {
   InsufficientFunds: 'Not enough money in the spending balance',
   PayeeNotAllowlisted: 'Recipient is not an active payee',
   PayeeExists: 'Recipient is already a payee',
+  PayeeNotFound: 'Recipient is not a payee',
   OverPerPaymentLimit: 'Amount is over the per-payment limit',
   OverWeeklyCap: 'Amount is over the weekly cap',
   TooManyHolds: 'Too many payments are already on hold',

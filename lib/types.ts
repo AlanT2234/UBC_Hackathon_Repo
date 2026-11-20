@@ -33,6 +33,16 @@ export type Rule = {
   limitCents: number | null;
 };
 
+/** Someone on the vault's approved list. New payees wait out the contract's change delay. */
+export type Payee = {
+  recipient: string;
+  name: string;
+  aliases: string[];
+  /** False until the waiting period after adding has passed. */
+  active: boolean;
+  activeAt: string;
+};
+
 export type Account = {
   seniorName: string;
   balanceCents: number;

@@ -19,6 +19,8 @@ export interface VaultClient {
 
   /** Senior or guardian. Becomes usable after `changeDelaySeconds`. */
   addPayee(vault: Pubkey, signer: Pubkey, recipient: Pubkey): Promise<TxResult & { payee: Payee }>;
+  /** Senior or guardian. Immediate: removing a payee can only narrow where money goes. */
+  removePayee(vault: Pubkey, signer: Pubkey, recipient: Pubkey): Promise<TxResult>;
   /** Agent session key. Instant transfer within onchain limits. */
   pay(vault: Pubkey, recipient: Pubkey, amount: Units): Promise<TxResult>;
   /** Agent session key. Moves funds into escrow until approved, rejected or expired. */

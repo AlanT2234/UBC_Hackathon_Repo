@@ -59,8 +59,23 @@ export class PayeeDirectory {
     return this.labels.get(key) ?? this.entries.get(key)?.name;
   }
 
+  unregister(recipient: Pubkey): void {
+    this.entries.delete(recipient);
+  }
+
   get(recipient: Pubkey): DirectoryEntry | undefined {
     return this.entries.get(recipient);
+  }
+
+  /** An entry whose name or a nickname is exactly `name` (ignoring case, punctuation, "the"...). */
+  findExact(vault: Pubkey, name: string): DirectoryEntry | undefined {
+    const wanted = nameTokens(name).join(' ');
+    if (!wanted) return undefined;
+    for (const entry of this.entries.values()) {
+      if (entry.vault !== null && entry.vault !== vault) continue;
+      if ([entry.name, ...entry.aliases].some((n) => nameTokens(n).join(' ') === wanted)) return entry;
+    }
+    return undefined;
   }
 
   match(vault: Pubkey, spokenName: string): MatchResult {

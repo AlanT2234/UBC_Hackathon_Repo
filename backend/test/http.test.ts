@@ -171,6 +171,81 @@ describe('QuickNode webhook', () => {
   });
 });
 
+describe('approved payees', () => {
+  const DAY = 24 * 3600;
+  const pay = (s: ReturnType<typeof setup>, payee_name: string, amount: number) =>
+    s.app().inject({ method: 'POST', url: '/tools/request_payment', payload: { payee_name, amount, memo: 'test' } });
+  const payees = async (s: ReturnType<typeof setup>) =>
+    (await s.app().inject({ url: `/api/vaults/${s.demo.vault}/payees` })).json() as { name: string; active: boolean; aliases: string[]; recipient: string; activeAt: number }[];
+
+  it('adds a payee by name, makes it wait 24 hours, then lets it be paid', async () => {
+    const s = setup();
+    const res = await s.app().inject({
+      method: 'POST',
+      url: `/api/vaults/${s.demo.vault}/payees`,
+      payload: { signer: s.demo.guardians.sam, name: 'Rosa Diaz', aliases: ['gardener'] },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().payee).toMatchObject({ name: 'Rosa Diaz', aliases: ['gardener'], active: false });
+    expect(s.notifier.sent.at(-1)).toMatch(/^➕ Sam added Rosa Diaz as a payee\. Usable from /);
+
+    const early = (await pay(s, 'the gardener', 40)).json();
+    expect(early).toMatchObject({ outcome: 'held', payee: 'Rosa Diaz' });
+    expect(early.message).toContain('Rosa Diaz was only added recently');
+
+    s.clock.advance(DAY);
+    expect((await pay(s, 'Rosa', 40)).json()).toMatchObject({ outcome: 'paid', payee: 'Rosa Diaz' });
+  });
+
+  it("reuses a known business's address, so earlier holds and the new payee are the same account", async () => {
+    const s = setup();
+    const res = await s.app().inject({
+      method: 'POST',
+      url: `/api/vaults/${s.demo.vault}/payees`,
+      payload: { signer: s.demo.senior, name: "Mike's Plumbing" },
+    });
+    expect(res.json().payee.recipient).toBe(s.demo.businesses.plumber);
+  });
+
+  it('rejects duplicates and strangers', async () => {
+    const s = setup();
+    const app = s.app();
+    const dup = await app.inject({ method: 'POST', url: `/api/vaults/${s.demo.vault}/payees`, payload: { signer: s.demo.guardians.sam, name: 'Maria' } });
+    expect(dup.statusCode).toBe(409);
+    expect(dup.json()).toMatchObject({ error: 'PayeeExists' });
+    const stranger = await app.inject({
+      method: 'POST',
+      url: `/api/vaults/${s.demo.vault}/payees`,
+      payload: { signer: s.demo.payees.tyler, name: 'Someone' },
+    });
+    expect(stranger.json()).toMatchObject({ error: 'Unauthorized' });
+  });
+
+  it('removes a payee immediately; later payments to them are held, not instant', async () => {
+    const s = setup();
+    const app = s.app();
+    const maria = (await payees(s)).find((p) => p.name === 'Maria')!;
+    const removed = await app.inject({
+      method: 'POST',
+      url: `/api/vaults/${s.demo.vault}/payees/${maria.recipient}/remove`,
+      payload: { signer: s.demo.guardians.priya },
+    });
+    expect(removed.statusCode).toBe(200);
+    expect((await payees(s)).map((p) => p.name)).not.toContain('Maria');
+    expect(s.notifier.sent.at(-1)).toBe('➖ Priya removed Maria as a payee. Payments to them now need approval.');
+
+    const after = (await pay(s, 'Maria', 20)).json();
+    expect(after).toMatchObject({ outcome: 'held', payee: 'Maria', reasons: ['Maria is not a saved payee'] });
+
+    const again = await app.inject({
+      method: 'POST',
+      url: `/api/vaults/${s.demo.vault}/payees/${maria.recipient}/remove`,
+      payload: { signer: s.demo.guardians.priya },
+    });
+    expect(again.statusCode).toBe(404);
+  });
+});
+
 describe('payment history', () => {
   const payments = async (s: ReturnType<typeof setup>) =>
     (await s.app().inject({ url: `/api/vaults/${s.demo.vault}/payments` })).json();

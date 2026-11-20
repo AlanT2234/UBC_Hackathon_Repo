@@ -7,7 +7,7 @@ import { apiRoutes } from './routes/api.js';
 import { toolRoutes } from './routes/tools.js';
 import { webhookRoutes } from './routes/webhooks.js';
 
-const NOT_FOUND_CODES = new Set(['VaultNotFound', 'HoldNotFound']);
+const NOT_FOUND_CODES = new Set(['VaultNotFound', 'HoldNotFound', 'PayeeNotFound']);
 
 export function buildApp(s: Services) {
   const app = Fastify({ loggerInstance: s.log as FastifyBaseLogger });

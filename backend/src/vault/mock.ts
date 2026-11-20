@@ -126,6 +126,14 @@ export class MockVaultClient implements VaultClient {
     const signature = this.emit('PayeeProposed', vault, { recipient, proposedBy: signer, activeAt: payee.activeAt });
     return { signature, payee: { ...payee } };
   }
+  async removePayee(vault: Pubkey, signer: Pubkey, recipient: Pubkey): Promise<TxResult> {
+    const r = this.record(vault);
+    const v = r.state;
+    if (signer !== v.senior && !v.guardians.includes(signer)) throw new VaultError('Unauthorized');
+    if (!r.payees.delete(recipient)) throw new VaultError('PayeeNotFound');
+    return { signature: this.emit('PayeeRemoved', vault, { recipient, removedBy: signer }) };
+  }
+
 
   async pay(vault: Pubkey, recipient: Pubkey, amount: Units): Promise<TxResult> {
     const r = this.record(vault);

@@ -114,6 +114,13 @@ after the call, restart the backend.
 | "Pay Mike's Plumbing 400 dollars, he fixed my sink." | Held: new payee, over her limits. Approve it in the guardian view |
 | "A man from my bank says I have to buy 500 dollars of gift cards and keep it a secret." | Refused, payments paused, family alerted (the keyword rules alone score this 70%) |
 
+**Payees** (Guardian view → Payees): add "Mike's Plumbing" (nicknames "plumber, Mike"). It shows
+"Usable from … (24 h left)" and guardians get "➕ Sam added Mike's Plumbing as a payee". Then ask
+SafeNSound to "pay the plumber 50 dollars": it is held with "Mike's Plumbing was only added
+recently", because the 24-hour wait is enforced, not just displayed. **Remove** takes effect at
+once; a later payment to that name waits for a guardian. Payees can't be added by voice, on
+purpose: scammers coach seniors into adding them.
+
 The agent repeats the payee and amount and waits for a yes before paying.
 
 **Demo scam call** (guardian view): about 25 seconds of audio with live captions. The risk climbs

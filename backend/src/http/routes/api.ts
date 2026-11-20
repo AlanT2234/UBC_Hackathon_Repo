@@ -1,4 +1,4 @@
-import { PublicKey } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { parseDollars } from '../../money.js';
@@ -19,12 +19,15 @@ const pubkey = z.string().refine((s) => {
 
 const VaultParams = z.object({ vault: pubkey });
 const HoldParams = VaultParams.extend({ hold: pubkey });
+const PayeeParams = VaultParams.extend({ recipient: pubkey });
 const GuardianBody = z.object({ guardian: pubkey });
 const SignerBody = z.object({ signer: pubkey });
 const PayeeBody = z.object({
   signer: pubkey,
   name: z.string().trim().min(1).max(80),
-  recipient: pubkey,
+  // Optional: guardians add people by name. Without an address, a known name (a business, or
+  // someone she already asked to pay) keeps its address; otherwise a claim address is created.
+  recipient: pubkey.optional(),
   aliases: z.array(z.string().trim().min(1).max(40)).max(5).default([]),
 });
 const CallBody = z.object({ caller: z.string().max(40).optional() });
@@ -58,8 +61,18 @@ export async function apiRoutes(app: FastifyInstance, s: Services): Promise<void
   app.post('/vaults/:vault/payees', async (req) => {
     const { vault } = VaultParams.parse(req.params);
     const body = PayeeBody.parse(req.body);
-    const result = await s.client.addPayee(vault, body.signer, body.recipient);
-    s.directory.register({ name: body.name, recipient: body.recipient, vault, aliases: body.aliases, kind: 'payee' });
+    const recipient = body.recipient ?? s.directory.findExact(vault, body.name)?.recipient ?? Keypair.generate().publicKey.toBase58();
+    // Named before the program call, because its PayeeProposed alert goes out right away.
+    const previous = s.directory.get(recipient);
+    s.directory.register({ name: body.name, recipient, vault, aliases: body.aliases, kind: 'payee' });
+    let result;
+    try {
+      result = await s.client.addPayee(vault, body.signer, recipient);
+    } catch (err) {
+      if (previous) s.directory.register(previous);
+      else s.directory.unregister(recipient);
+      throw err;
+    }
     return { signature: result.signature, payee: payeeView(result.payee, s.now(), s.directory) };
   });
 
@@ -68,6 +81,16 @@ export async function apiRoutes(app: FastifyInstance, s: Services): Promise<void
     const { vault } = VaultParams.parse(req.params);
     const now = s.now();
     return s.payments.list(vault).map((p) => paymentView(p, now, s.directory, s.config.cluster));
+  });
+
+  app.post('/vaults/:vault/payees/:recipient/remove', async (req) => {
+    const { vault, recipient } = PayeeParams.parse(req.params);
+    const { signer } = SignerBody.parse(req.body);
+    const result = await s.client.removePayee(vault, signer, recipient);
+    // The name keeps resolving to the same address, so a later request to them is held, not new.
+    const entry = s.directory.get(recipient);
+    if (entry) s.directory.register({ ...entry, kind: 'claim' });
+    return result;
   });
 
   app.get('/vaults/:vault/holds', async (req) => {

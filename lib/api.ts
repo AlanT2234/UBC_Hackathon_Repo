@@ -1,4 +1,4 @@
-import type { Account, AgentPhase, Payment, Rule, VoiceRequest } from "@/lib/types";
+import type { Account, AgentPhase, Payee, Payment, Rule, VoiceRequest } from "@/lib/types";
 
 /**
  * Client for the SafeNSound backend. The assistant and the screens call only these functions.
@@ -42,6 +42,14 @@ type PaymentView = {
   explorerUrl: string | null;
 };
 
+type PayeeView = {
+  recipient: string;
+  name: string | null;
+  aliases: string[];
+  activeAt: number;
+  active: boolean;
+};
+
 type DecisionView = {
   outcome: "paid" | "held" | "refused" | "clarify" | "error";
   message: string;
@@ -64,6 +72,7 @@ export type Snapshot = {
   rules: Rule[];
   frozen: boolean;
   guardians: Guardian[];
+  payees: Payee[];
 };
 
 class ApiError extends Error {
@@ -106,6 +115,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   NotGuardian: "Only a family guardian can do this.",
   NotFrozen: "Payments are not paused.",
   AlreadyFrozen: "Payments are already paused.",
+  PayeeExists: "That person is already on her payee list.",
+  PayeeNotFound: "That person is no longer on her payee list.",
   unauthorized: "The dashboard token was not accepted.",
 };
 
@@ -243,6 +254,7 @@ let snapshot: Snapshot = {
   rules: [],
   frozen: false,
   guardians: [],
+  payees: [],
 };
 
 let ids: DemoIds | null = null;
@@ -269,9 +281,10 @@ async function demoIds(): Promise<DemoIds> {
 
 async function load(): Promise<void> {
   const { vault } = await demoIds();
-  const [v, payments] = await Promise.all([
+  const [v, payments, payees] = await Promise.all([
     request<VaultView>(`/api/vaults/${vault}`),
     request<PaymentView[]>(`/api/vaults/${vault}/payments`),
+    request<PayeeView[]>(`/api/vaults/${vault}/payees`),
   ]);
   const list = payments.map(toPayment);
   commit({
@@ -287,6 +300,15 @@ async function load(): Promise<void> {
     guardians: v.guardians
       .filter((g) => !g.professional)
       .map((g) => ({ key: g.key, name: g.name ?? "Guardian" })),
+    payees: payees
+      .map((p) => ({
+        recipient: p.recipient,
+        name: p.name ?? "Unnamed payee",
+        aliases: p.aliases,
+        active: p.active,
+        activeAt: iso(p.activeAt),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
   });
 }
 
@@ -398,6 +420,27 @@ export async function setFrozen(frozen: boolean): Promise<void> {
   await request(`/api/vaults/${vault}/${frozen ? "freeze" : "unfreeze"}`, {
     method: "POST",
     body: { guardian: actingGuardian().key },
+  });
+  await refresh();
+}
+
+/** Demo: added as the first family guardian. The address is created from the name by the backend. */
+export async function addPayee(name: string, aliases: string[]): Promise<Payee> {
+  const { vault } = await demoIds();
+  const guardian = actingGuardian();
+  const { payee } = await request<{ payee: PayeeView }>(`/api/vaults/${vault}/payees`, {
+    method: "POST",
+    body: { signer: guardian.key, name, aliases },
+  });
+  await refresh();
+  return snapshot.payees.find((p) => p.recipient === payee.recipient)!;
+}
+
+export async function removePayee(recipient: string): Promise<void> {
+  const { vault } = await demoIds();
+  await request(`/api/vaults/${vault}/payees/${recipient}/remove`, {
+    method: "POST",
+    body: { signer: actingGuardian().key },
   });
   await refresh();
 }

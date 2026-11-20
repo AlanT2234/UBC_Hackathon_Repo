@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const links = [
   { href: "/family", label: "Overview" },
   { href: "/family/history", label: "Payment history" },
+  { href: "/family/payees", label: "Payees" },
   { href: "/family/rules", label: "Rules" },
 ];
 
