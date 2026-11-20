@@ -126,6 +126,37 @@ A guardian's **Turn payments back on** unfreezes immediately, but the call's ris
 
 Restarting the backend clears all of this (and resets Dorothy to $1,200 with no history).
 
+## Onchain proof (Solana devnet)
+
+The dashboard runs on the backend's in-memory mirror of the program. To show the same rules
+enforced by the real deployed program, run this from `backend/` (it is independent of the servers):
+
+```
+npm run devnet -- run --step
+```
+
+`--step` waits for Enter between beats so you can narrate and open each Explorer link. Every beat
+is a real devnet transaction; rejected ones are sent anyway so the program's error is recorded
+onchain:
+
+| Beat | Result on chain |
+|---|---|
+| The agent key pays Maria $20 | Confirmed |
+| "Jailbreak": the same key sends Maria $900 | Rejected: `OverPerPaymentLimit` |
+| $50 to a scammer's account | Rejected: `AccountNotInitialized`, i.e. no payee-list entry |
+| Scam detected: the agent key freezes the vault | Confirmed |
+| $20 to Maria while frozen | Rejected: `Frozen` |
+| Sam (guardian) unfreezes | Confirmed |
+
+Each run spends $20 of the $300 weekly cap, so ~14 runs per vault. `npm run devnet -- status`
+shows the balance and links; `npm run devnet -- setup --fresh` makes a new vault (new keys, same
+fee payer and test USDC). Keys live in `backend/.devnet/` (gitignored, throwaway devnet keys).
+
+The vault holds a **test USDC** token the script created (6 decimals, like USDC). The public
+devnet RPC rate-limits heavily; set `SOLANA_RPC_URL` to a free Helius or QuickNode devnet URL for
+the presentation. Fee SOL comes from the payer printed by `setup`; if it runs out, fund it at
+https://faucet.solana.com (Devnet). The RPC airdrop is closed on devnet.
+
 ## Changing the demo call
 
 Edit `lib/demo-call.json` in the dashboard repo (lines, speakers, voice IDs), then regenerate the

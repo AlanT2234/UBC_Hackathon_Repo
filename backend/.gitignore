@@ -1,1 +1,3 @@
 dist/
+# Throwaway devnet demo keys (scripts/devnet-demo.ts)
+.devnet/
